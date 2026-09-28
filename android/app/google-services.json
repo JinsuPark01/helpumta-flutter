@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "312771188756",
+    "project_id": "helpumta-flutter",
+    "storage_bucket": "helpumta-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:312771188756:android:daa7b5232dbe9bda276f01",
+        "android_client_info": {
+          "package_name": "com.jinsupark.helpumta_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "312771188756-t5qb8eqgm1jn9rv2lt54uj15fhd5j9nj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBglucf6p3UdqpDJpACv9o4Q3JywAzMXiE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "312771188756-t5qb8eqgm1jn9rv2lt54uj15fhd5j9nj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
