@@ -1,6 +1,17 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../domain/repository/auth_repository.dart';
+import '../domain/repository/user_repository.dart';
+import '../domain/usecase/email_login_use_case.dart';
+import '../domain/usecase/save_user_use_case.dart';
+import '../domain/usecase/sign_up_use_case.dart';
 import '../presentation/common/placeholder_screen.dart';
+import '../presentation/login/login_bloc.dart';
+import '../presentation/login/login_screen.dart';
+import '../presentation/sign_up/sign_up_bloc.dart';
+import '../presentation/sign_up/sign_up_screen.dart';
 
 abstract final class AppRoutes {
   static const login = '/login';
@@ -15,67 +26,99 @@ abstract final class AppRoutes {
   static String recordCreatePath(String groupId) => '/group/$groupId/record';
 }
 
-final appRouter = GoRouter(
-  initialLocation: AppRoutes.login,
-  routes: [
-    GoRoute(
-      path: AppRoutes.login,
-      builder: (context, state) => const PlaceholderScreen(
-        title: '로그인',
-        links: [
-          PlaceholderLink('회원가입', AppRoutes.signUp),
-          PlaceholderLink('로그인 성공 → 홈', AppRoutes.home, replace: true),
-        ],
+GoRouter createRouter(AuthRepository authRepository) {
+  return GoRouter(
+    initialLocation: AppRoutes.home,
+    redirect: (context, state) {
+      final isLoggedIn = authRepository.getCurrentUserId() != null;
+      final location = state.matchedLocation;
+      final isAuthPage =
+          location == AppRoutes.login || location == AppRoutes.signUp;
+
+      if (!isLoggedIn && !isAuthPage) return AppRoutes.login;
+      if (isLoggedIn && isAuthPage) return AppRoutes.home;
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (context, state) => BlocProvider(
+          create: (context) => LoginBloc(
+            emailLoginUseCase:
+            EmailLoginUseCase(context.read<AuthRepository>()),
+          ),
+          child: const LoginScreen(),
+        ),
       ),
-    ),
-    GoRoute(
-      path: AppRoutes.signUp,
-      builder: (context, state) => const PlaceholderScreen(title: '회원가입'),
-    ),
-    GoRoute(
-      path: AppRoutes.home,
-      builder: (context, state) => PlaceholderScreen(
-        title: '홈',
-        links: [
-          const PlaceholderLink('그룹 생성', AppRoutes.groupCreate),
-          PlaceholderLink('그룹 상세 (sample)', AppRoutes.groupDetailPath('sample')),
-          const PlaceholderLink('마이페이지', AppRoutes.myPage),
-        ],
+      GoRoute(
+        path: AppRoutes.signUp,
+        builder: (context, state) => BlocProvider(
+          create: (context) => SignUpBloc(
+            signUpUseCase: SignUpUseCase(context.read<AuthRepository>()),
+            saveUserUseCase: SaveUserUseCase(
+              context.read<AuthRepository>(),
+              context.read<UserRepository>(),
+            ),
+          ),
+          child: const SignUpScreen(),
+        ),
       ),
-    ),
-    // groupCreate는 반드시 groupDetail보다 위에 있어야 함
-    // (아래에 두면 'create'가 groupId로 매칭됨)
-    GoRoute(
-      path: AppRoutes.groupCreate,
-      builder: (context, state) => const PlaceholderScreen(title: '그룹 생성'),
-    ),
-    GoRoute(
-      path: AppRoutes.groupDetail,
-      builder: (context, state) {
-        final groupId = state.pathParameters['groupId']!;
-        return PlaceholderScreen(
-          title: '그룹 상세: $groupId',
+      GoRoute(
+        path: AppRoutes.home,
+        builder: (context, state) => PlaceholderScreen(
+          title: '홈',
           links: [
-            PlaceholderLink('기록 작성', AppRoutes.recordCreatePath(groupId)),
+            const PlaceholderLink('그룹 생성', AppRoutes.groupCreate),
+            PlaceholderLink(
+              '그룹 상세 (sample)',
+              AppRoutes.groupDetailPath('sample'),
+            ),
+            const PlaceholderLink('마이페이지', AppRoutes.myPage),
           ],
-        );
-      },
-    ),
-    GoRoute(
-      path: AppRoutes.recordCreate,
-      builder: (context, state) {
-        final groupId = state.pathParameters['groupId']!;
-        return PlaceholderScreen(title: '기록 작성: $groupId');
-      },
-    ),
-    GoRoute(
-      path: AppRoutes.myPage,
-      builder: (context, state) => const PlaceholderScreen(
-        title: '마이페이지',
-        links: [
-          PlaceholderLink('로그아웃 → 로그인', AppRoutes.login, replace: true),
-        ],
+        ),
       ),
-    ),
-  ],
-);
+      // groupCreate는 반드시 groupDetail보다 위에 있어야 함
+      // (아래에 두면 'create'가 groupId로 매칭됨)
+      GoRoute(
+        path: AppRoutes.groupCreate,
+        builder: (context, state) =>
+        const PlaceholderScreen(title: '그룹 생성'),
+      ),
+      GoRoute(
+        path: AppRoutes.groupDetail,
+        builder: (context, state) {
+          final groupId = state.pathParameters['groupId']!;
+          return PlaceholderScreen(
+            title: '그룹 상세: $groupId',
+            links: [
+              PlaceholderLink('기록 작성', AppRoutes.recordCreatePath(groupId)),
+            ],
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.recordCreate,
+        builder: (context, state) {
+          final groupId = state.pathParameters['groupId']!;
+          return PlaceholderScreen(title: '기록 작성: $groupId');
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.myPage,
+        // 마이페이지 구현 전까지 로그아웃만 되는 임시 화면
+        builder: (context, state) => Scaffold(
+          appBar: AppBar(title: const Text('마이페이지')),
+          body: Center(
+            child: FilledButton(
+              onPressed: () async {
+                await context.read<AuthRepository>().logout();
+                if (context.mounted) context.go(AppRoutes.login);
+              },
+              child: const Text('로그아웃'),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
