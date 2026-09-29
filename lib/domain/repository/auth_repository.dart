@@ -13,7 +13,8 @@ abstract interface class AuthRepository {
     required String nickname,
   });
 
-  Future<Result<User>> googleLogin(String idToken);
+  /// 구글 계정 선택 + Firebase 로그인까지 처리
+  Future<Result<User>> googleLogin();
 
   String? getCurrentUserId();
 

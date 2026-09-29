@@ -1,18 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/result.dart';
-import '../../domain/usecase/save_user_use_case.dart';
 import '../../domain/usecase/sign_up_use_case.dart';
 import '../auth/auth_error_message.dart';
 import 'sign_up_event.dart';
 import 'sign_up_state.dart';
 
 class SignUpBloc extends Bloc<SignUpEvent, SignUpState> {
-  SignUpBloc({
-    required SignUpUseCase signUpUseCase,
-    required SaveUserUseCase saveUserUseCase,
-  })  : _signUpUseCase = signUpUseCase,
-        _saveUserUseCase = saveUserUseCase,
+  SignUpBloc({required SignUpUseCase signUpUseCase})
+      : _signUpUseCase = signUpUseCase,
         super(const SignUpState()) {
     on<SignUpEmailChanged>(
           (event, emit) => emit(
@@ -41,7 +37,6 @@ class SignUpBloc extends Bloc<SignUpEvent, SignUpState> {
   }
 
   final SignUpUseCase _signUpUseCase;
-  final SaveUserUseCase _saveUserUseCase;
 
   Future<void> _onSubmitted(
       SignUpSubmitted event,
@@ -49,7 +44,10 @@ class SignUpBloc extends Bloc<SignUpEvent, SignUpState> {
       ) async {
     if (state.isLoading) return;
 
-    emit(state.copyWith(isLoading: true, errorMessage: () => null));
+    emit(state.copyWith(
+      status: SignUpStatus.loading,
+      errorMessage: () => null,
+    ));
 
     final result = await _signUpUseCase(
       email: state.email.trim(),
@@ -59,11 +57,10 @@ class SignUpBloc extends Bloc<SignUpEvent, SignUpState> {
 
     switch (result) {
       case Ok():
-        await _saveUserUseCase();
-        emit(state.copyWith(isLoading: false, isSignedUp: true));
+        emit(state.copyWith(status: SignUpStatus.success));
       case Error(:final error):
         emit(state.copyWith(
-          isLoading: false,
+          status: SignUpStatus.failure,
           errorMessage: () =>
               authErrorMessageOf(error, fallback: '잠시 후 다시 시도해주세요'),
         ));

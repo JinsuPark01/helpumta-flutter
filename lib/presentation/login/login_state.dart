@@ -1,22 +1,22 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
+enum LoginStatus { initial, loading, success, failure }
+
 class LoginState extends Equatable {
   const LoginState({
     this.email = '',
     this.password = '',
-    this.isLoading = false,
+    this.status = LoginStatus.initial,
     this.errorMessage,
-    this.isLoggedIn = false,
   });
 
   final String email;
   final String password;
-  final bool isLoading;
+  final LoginStatus status;
   final String? errorMessage;
 
-  /// SideEffect.NavigateToHome 대체 — false → true 전환 시 한 번만 반응
-  final bool isLoggedIn;
+  bool get isLoading => status == LoginStatus.loading;
 
   bool get isLoginEnabled =>
       email.trim().isNotEmpty && password.trim().isNotEmpty;
@@ -24,20 +24,17 @@ class LoginState extends Equatable {
   LoginState copyWith({
     String? email,
     String? password,
-    bool? isLoading,
+    LoginStatus? status,
     ValueGetter<String?>? errorMessage,
-    bool? isLoggedIn,
   }) {
     return LoginState(
       email: email ?? this.email,
       password: password ?? this.password,
-      isLoading: isLoading ?? this.isLoading,
+      status: status ?? this.status,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
-      isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [email, password, isLoading, errorMessage, isLoggedIn];
+  List<Object?> get props => [email, password, status, errorMessage];
 }

@@ -4,26 +4,26 @@ import 'package:flutter/foundation.dart';
 /// Android Patterns.EMAIL_ADDRESS 대체 (완전히 동일한 규칙은 아님)
 final _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
+enum SignUpStatus { initial, loading, success, failure }
+
 class SignUpState extends Equatable {
   const SignUpState({
     this.email = '',
     this.password = '',
     this.passwordConfirm = '',
     this.nickname = '',
-    this.isLoading = false,
+    this.status = SignUpStatus.initial,
     this.errorMessage,
-    this.isSignedUp = false,
   });
 
   final String email;
   final String password;
   final String passwordConfirm;
   final String nickname;
-  final bool isLoading;
+  final SignUpStatus status;
   final String? errorMessage;
 
-  /// SideEffect(ShowToast + NavigateToHome) 대체
-  final bool isSignedUp;
+  bool get isLoading => status == SignUpStatus.loading;
 
   bool get isValidEmail => _emailRegex.hasMatch(email);
 
@@ -38,18 +38,16 @@ class SignUpState extends Equatable {
     String? password,
     String? passwordConfirm,
     String? nickname,
-    bool? isLoading,
+    SignUpStatus? status,
     ValueGetter<String?>? errorMessage,
-    bool? isSignedUp,
   }) {
     return SignUpState(
       email: email ?? this.email,
       password: password ?? this.password,
       passwordConfirm: passwordConfirm ?? this.passwordConfirm,
       nickname: nickname ?? this.nickname,
-      isLoading: isLoading ?? this.isLoading,
+      status: status ?? this.status,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
-      isSignedUp: isSignedUp ?? this.isSignedUp,
     );
   }
 
@@ -59,8 +57,7 @@ class SignUpState extends Equatable {
     password,
     passwordConfirm,
     nickname,
-    isLoading,
+    status,
     errorMessage,
-    isSignedUp,
   ];
 }

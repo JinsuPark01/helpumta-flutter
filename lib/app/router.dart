@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/auth/google_auth_client.dart';
 import '../domain/repository/auth_repository.dart';
 import '../domain/repository/user_repository.dart';
 import '../domain/usecase/email_login_use_case.dart';
@@ -46,13 +45,15 @@ GoRouter createRouter(AuthRepository authRepository) {
         path: AppRoutes.login,
         builder: (context, state) {
           final authRepository = context.read<AuthRepository>();
-          final userRepository = context.read<UserRepository>();
+          final saveUserUseCase = SaveUserUseCase(
+            authRepository,
+            context.read<UserRepository>(),
+          );
           return BlocProvider(
             create: (context) => LoginBloc(
               emailLoginUseCase: EmailLoginUseCase(authRepository),
-              googleLoginUseCase: GoogleLoginUseCase(authRepository),
-              googleAuthClient: context.read<GoogleAuthClient>(),
-              saveUserUseCase: SaveUserUseCase(authRepository, userRepository),
+              googleLoginUseCase:
+              GoogleLoginUseCase(authRepository, saveUserUseCase),
             ),
             child: const LoginScreen(),
           );
@@ -62,11 +63,13 @@ GoRouter createRouter(AuthRepository authRepository) {
         path: AppRoutes.signUp,
         builder: (context, state) {
           final authRepository = context.read<AuthRepository>();
-          final userRepository = context.read<UserRepository>();
+          final saveUserUseCase = SaveUserUseCase(
+            authRepository,
+            context.read<UserRepository>(),
+          );
           return BlocProvider(
             create: (context) => SignUpBloc(
-              signUpUseCase: SignUpUseCase(authRepository),
-              saveUserUseCase: SaveUserUseCase(authRepository, userRepository),
+              signUpUseCase: SignUpUseCase(authRepository, saveUserUseCase),
             ),
             child: const SignUpScreen(),
           );

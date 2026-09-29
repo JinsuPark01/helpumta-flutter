@@ -14,7 +14,8 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<LoginBloc, LoginState>(
       listenWhen: (previous, current) =>
-      !previous.isLoggedIn && current.isLoggedIn,
+      previous.status != current.status &&
+          current.status == LoginStatus.success,
       listener: (context, state) => context.go(AppRoutes.home),
       child: BlocBuilder<LoginBloc, LoginState>(
         builder: (context, state) => _LoginContent(

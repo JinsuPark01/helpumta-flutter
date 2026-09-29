@@ -4,12 +4,14 @@ import '../../core/result.dart';
 import '../../domain/entity/auth_error.dart';
 import '../../domain/entity/user.dart';
 import '../../domain/repository/auth_repository.dart';
+import '../auth/google_auth_client.dart';
 import '../mapper/user_mapper.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl(this._firebaseAuth);
+  AuthRepositoryImpl(this._firebaseAuth, this._googleAuthClient);
 
   final fb.FirebaseAuth _firebaseAuth;
+  final GoogleAuthClient _googleAuthClient;
 
   @override
   Future<Result<User>> emailLogin({
@@ -47,10 +49,15 @@ class AuthRepositoryImpl implements AuthRepository {
         return Result.error(Exception('회원가입에 실패했습니다'));
       }
 
-      // 닉네임을 displayName으로 설정
-      await firebaseUser.updateDisplayName(nickname);
-      // 이후 getCurrentUserName()이 갱신된 값을 읽도록 로컬 캐시 새로고침
-      await firebaseUser.reload();
+      // 계정은 이미 생성됐으므로 닉네임 설정 실패는 가입 실패로 보지 않는다.
+      // (users 문서에는 닉네임이 별도로 저장되고, displayName이 없으면
+      //  getCurrentUserName()이 이메일 앞부분으로 대체한다)
+      try {
+        await firebaseUser.updateDisplayName(nickname);
+        await firebaseUser.reload();
+      } on Exception {
+        // 무시
+      }
 
       return Result.ok(firebaseUser.toDomain());
     } on Exception catch (e) {
@@ -59,18 +66,25 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<User>> googleLogin(String idToken) async {
-    try {
-      final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
-      final result = await _firebaseAuth.signInWithCredential(credential);
+  Future<Result<User>> googleLogin() async {
+    final tokenResult = await _googleAuthClient.getIdToken();
 
-      final firebaseUser = result.user;
-      if (firebaseUser == null) {
-        return Result.error(Exception('구글 로그인에 실패했습니다'));
-      }
-      return Result.ok(firebaseUser.toDomain());
-    } on Exception catch (e) {
-      return Result.error(AuthException(e.toAuthError()));
+    switch (tokenResult) {
+      case Error(:final error):
+        return Result.error(error);
+      case Ok(value: final idToken):
+        try {
+          final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
+          final result = await _firebaseAuth.signInWithCredential(credential);
+
+          final firebaseUser = result.user;
+          if (firebaseUser == null) {
+            return Result.error(Exception('구글 로그인에 실패했습니다'));
+          }
+          return Result.ok(firebaseUser.toDomain());
+        } on Exception catch (e) {
+          return Result.error(AuthException(e.toAuthError()));
+        }
     }
   }
 
@@ -89,7 +103,10 @@ class AuthRepositoryImpl implements AuthRepository {
   String? getCurrentUserEmail() => _firebaseAuth.currentUser?.email;
 
   @override
-  Future<void> logout() => _firebaseAuth.signOut();
+  Future<void> logout() async {
+    await _googleAuthClient.signOut();
+    await _firebaseAuth.signOut();
+  }
 }
 
 extension on Exception {
@@ -99,7 +116,7 @@ extension on Exception {
 
     return switch (e.code) {
       'weak-password' => AuthError.weakPassword,
-    // 보안상 합침 (네이티브의 InvalidCredentials + InvalidUser)
+    // 보안상 합침 (계정 존재 여부를 노출하지 않음)
       'invalid-credential' ||
       'wrong-password' ||
       'invalid-email' ||

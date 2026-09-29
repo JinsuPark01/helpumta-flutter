@@ -7,11 +7,12 @@ extension AuthErrorMessage on AuthError {
     AuthError.emailAlreadyInUse => '이미 사용 중인 이메일입니다',
     AuthError.weakPassword => '비밀번호는 6자 이상이어야 합니다',
     AuthError.network => '네트워크 연결을 확인해주세요',
+    AuthError.googleSignInCancelled => '로그인이 취소되었습니다',
+    AuthError.googleAccountUnavailable => '구글 계정을 가져올 수 없습니다',
     AuthError.unknown => '잠시 후 다시 시도해주세요',
   };
 }
 
-/// 네이티브의 `(e as? AuthException)?.error?.toMessage() ?: fallback`
 String authErrorMessageOf(Exception error, {required String fallback}) {
   return error is AuthException ? error.error.toMessage() : fallback;
 }

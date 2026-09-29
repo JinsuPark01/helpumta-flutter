@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/auth/google_auth_client.dart';
 import '../domain/repository/auth_repository.dart';
 import '../domain/repository/user_repository.dart';
 import 'router.dart';
@@ -12,12 +11,10 @@ class HelpumtaApp extends StatefulWidget {
     super.key,
     required this.authRepository,
     required this.userRepository,
-    required this.googleAuthClient,
   });
 
   final AuthRepository authRepository;
   final UserRepository userRepository;
-  final GoogleAuthClient googleAuthClient;
 
   @override
   State<HelpumtaApp> createState() => _HelpumtaAppState();
@@ -36,9 +33,6 @@ class _HelpumtaAppState extends State<HelpumtaApp> {
         ),
         RepositoryProvider<UserRepository>.value(
           value: widget.userRepository,
-        ),
-        RepositoryProvider<GoogleAuthClient>.value(
-          value: widget.googleAuthClient,
         ),
       ],
       child: MaterialApp.router(

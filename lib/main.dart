@@ -15,16 +15,17 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 네이티브 Hilt @Singleton과 같은 역할: 앱 전체에서 인스턴스 하나만 사용
-  final authRepository = AuthRepositoryImpl(FirebaseAuth.instance);
+  // 앱 전체에서 인스턴스 하나만 사용 (Hilt @Singleton 역할)
+  final authRepository = AuthRepositoryImpl(
+    FirebaseAuth.instance,
+    GoogleAuthClient(),
+  );
   final userRepository = UserRepositoryImpl(FirebaseFirestore.instance);
-  final googleAuthClient = GoogleAuthClient();
 
   runApp(
     HelpumtaApp(
       authRepository: authRepository,
       userRepository: userRepository,
-      googleAuthClient: googleAuthClient,
     ),
   );
 }

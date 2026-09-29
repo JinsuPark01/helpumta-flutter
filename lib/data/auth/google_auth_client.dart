@@ -1,7 +1,10 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/result.dart';
+import '../../domain/entity/auth_error.dart';
 
+/// 구글 계정 선택 → idToken 획득.
+/// AuthRepositoryImpl 내부에서만 사용한다.
 class GoogleAuthClient {
   GoogleAuthClient({GoogleSignIn? googleSignIn})
       : _googleSignIn = googleSignIn ?? GoogleSignIn.instance;
@@ -30,16 +33,34 @@ class GoogleAuthClient {
       final idToken = account.authentication.idToken;
 
       if (idToken == null) {
-        return Result.error(Exception('구글 로그인 응답이 올바르지 않습니다'));
+        return const Result.error(
+          AuthException(AuthError.googleAccountUnavailable),
+        );
       }
       return Result.ok(idToken);
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) {
-        return Result.error(Exception('로그인이 취소되었습니다'));
+        return const Result.error(
+          AuthException(AuthError.googleSignInCancelled),
+        );
       }
-      return Result.error(e);
-    } on Exception catch (e) {
-      return Result.error(e);
+      return const Result.error(
+        AuthException(AuthError.googleAccountUnavailable),
+      );
+    } on Exception {
+      return const Result.error(
+        AuthException(AuthError.googleAccountUnavailable),
+      );
+    }
+  }
+
+  /// 다음 로그인 때 이전 계정이 자동 선택되지 않도록 구글 세션 정리
+  Future<void> signOut() async {
+    try {
+      await _ensureInitialized();
+      await _googleSignIn.signOut();
+    } on Exception {
+      // 구글 세션 정리 실패는 로그아웃 자체를 막지 않음
     }
   }
 }

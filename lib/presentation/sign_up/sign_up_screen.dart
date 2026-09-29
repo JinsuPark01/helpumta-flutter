@@ -14,7 +14,8 @@ class SignUpScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<SignUpBloc, SignUpState>(
       listenWhen: (previous, current) =>
-      !previous.isSignedUp && current.isSignedUp,
+      previous.status != current.status &&
+          current.status == SignUpStatus.success,
       listener: (context, state) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('회원가입이 완료됐어요!')),

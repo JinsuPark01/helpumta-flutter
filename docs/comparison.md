@@ -1,9 +1,38 @@
 # 헬품타 Native(Compose) vs Flutter 비교 기록
 
+## 프로젝트 목적
+- 네이티브 헬품타를 **요구사항 명세**로 사용하고, 구현은 **Flutter다운 좋은 아키텍처**로 새로 작성
+- 코드를 언어만 바꿔 옮기는 것이 아니라, 같은 요구사항을 각 플랫폼의 현업 관례대로 구현하고 차이를 기록
+- 네이티브의 버그·구조적 예외는 Flutter에서 복사하지 않고 개선해서 구현
+
 ## 비교 환경
 - Native: Kotlin, Jetpack Compose, Clean Architecture + MVI, Hilt
 - Flutter: Flutter 3.47.5 / Dart 3.13.4, Clean Architecture + Bloc
 - 테스트 기기: Android 실기기 (iOS는 CI 빌드 검증까지만)
+
+---
+
+## 아키텍처 개요
+
+### 레이어 대응
+| 레이어 | Native | Flutter |
+|---|---|---|
+| Domain | 순수 Kotlin (model, repository 인터페이스, usecase) | 순수 Dart (entity, repository 인터페이스, usecase) |
+| Data | RepositoryImpl + Mapper, Firebase 직접 호출 | 동일 |
+| UI | MVI (Contract + ViewModel) | Bloc (Event / State / Bloc) |
+| 공통 | Kotlin 표준 `Result` | `core/result.dart` (공식 가이드 Result 패턴) |
+| DI | Hilt | `RepositoryProvider` + 라우트에서 조립 |
+| 라우팅 | Navigation Compose | go_router |
+
+### 설계 결정
+| 항목 | 결정 | 근거 |
+|---|---|---|
+| 상태관리 | Bloc | MVI 계열로 단방향 흐름 유지. Riverpod과 함께 현업 양강 |
+| 일회성 효과 | status enum + BlocListener | Bloc 현업 표준. 요청마다 loading을 거쳐 같은 효과가 반복돼도 동작 |
+| 단순 화면 이동 | 화면에서 `context.go/push` 직접 호출 | go_router 관례. 로직 없는 이동은 Bloc을 거치지 않음 |
+| 오케스트레이션 | UseCase가 다른 UseCase 호출 | "로그인 후 유저 저장" 같은 비즈니스 흐름을 UI 레이어에서 분리 |
+| Service 레이어 | 두지 않음 | Firebase SDK 자체가 Service 역할 |
+| Domain의 equatable | 허용 | Kotlin data class 역할 대체용 순수 Dart 패키지 |
 
 ---
 
@@ -26,14 +55,15 @@
 ### 라우팅
 | 항목 | Native | Flutter |
 |---|---|---|
-| 라이브러리 | Navigation Compose | go_router |
 | 경로 정의 | `composable("group/{groupId}")` | `GoRoute(path: '/group/:groupId')` |
 | 인자 수신 | `backStackEntry.arguments` | `state.pathParameters` |
 | 스택 쌓기 | `navigate()` | `context.push()` |
 | 스택 교체 | `navigate()` + `popUpTo(inclusive = true)` | `context.go()` |
+| 로그인 상태 분기 | NavGraph 호출부에서 `startDestination` 결정 후 주입 | `redirect`에서 매 이동마다 검사 |
+| 화면의 이동 방식 | 화면은 콜백만 받고 경로는 NavGraph만 앎 | 화면이 `context.go()`로 직접 이동 (go_router 관례) |
 
 - go_router는 라우트 선언 순서대로 매칭 → `/group/create`를 `/group/:groupId`보다 먼저 선언해야 함
-- 스택 교체가 `go()` 한 번으로 끝나 로그인 → 홈 같은 흐름이 더 간결
+- redirect는 시작 화면뿐 아니라 모든 이동에 적용 → 로그인 상태에서 로그인 화면 접근 차단까지 한 곳에서 처리
 
 ---
 
@@ -47,13 +77,30 @@
 | data class | `data class` 자동 생성 | `Equatable` + `props` + `copyWith` 직접 작성 |
 | nullable 초기화 | `copy(errorMessage = null)` | `copyWith(errorMessage: () => null)` |
 | UseCase 호출 | `operator fun invoke` | `call` 메서드 |
-| DI | Hilt 자동 주입 | `RepositoryProvider` + 라우트에서 수동 조립 |
-| 로그인 상태 분기 | (시작 시 currentUser 확인) | go_router `redirect` |
+| 로그인 후 유저 저장 | ViewModel이 `saveUserUseCase()` 호출 | `GoogleLoginUseCase`/`SignUpUseCase` 내부에서 처리 |
 
-### SideEffect
-- Native: `SharedFlow`로 별도 전달 → `LaunchedEffect`에서 수집
-- Flutter: Bloc에 전용 통로 없음 → State에 완료 플래그(`isLoggedIn`, `isSignedUp`) + `BlocListener`의 `listenWhen`으로 전환 시점에만 반응
-- 인증 화면은 성공 시 화면을 떠나서 중복 실행 문제 없음. 같은 화면에 머무는 반복 효과는 별도 설계 필요
+### 일회성 효과 (SideEffect)
+| | Native | Flutter |
+|---|---|---|
+| 방식 | `SharedFlow`로 별도 전달 → `LaunchedEffect`에서 수집 | State의 `status` 변화 → `BlocListener`가 반응 |
+| 성공 이동 | `SideEffect.NavigateToHome` | `status == success` 전환 시 `context.go()` |
+
+- Bloc은 State만 내보내고 SideEffect 전용 통로가 없음
+- State에 "이동할 대상" 같은 값을 담으면 같은 값이 반복될 때 State가 변하지 않아 반응하지 않음
+- 현업 해결책: 단순 이동은 화면에서 직접, 서버 결과는 `status`(initial → loading → success/failure)로 처리. 요청마다 loading을 거치므로 같은 실패가 연속돼도 매번 반응
+
+### Google 로그인
+| 항목 | Native | Flutter |
+|---|---|---|
+| 라이브러리 | Credential Manager + googleid | google_sign_in 7.x |
+| Activity | Credential Manager가 요구 → ViewModel까지 전달 | 불필요 |
+| 토큰 획득 위치 | ViewModel이 `GoogleAuthClient` 직접 호출 (UI → Data 의존, 예외 허용) | `AuthRepositoryImpl` 내부 (Data 레이어에 캡슐화) |
+| 웹 클라이언트 ID | BuildConfig에 직접 설정 | google-services.json(client_type: 3)에서 자동 로드 |
+| 계정 선택 흐름 | One Tap 실패 시 SignInWithGoogle로 재시도 직접 구현 | authenticate() 한 번으로 플러그인이 처리 |
+| 초기화 | 없음 | authenticate() 전 initialize() 필수 |
+
+- Activity 요구가 사라지면서 네이티브에서 허용했던 레이어 예외가 Flutter에선 해소됨
+- 코드량은 크게 줄었지만 계정 선택 흐름을 세부적으로 제어할 수 없음
 
 ### 플랫폼 기능 대체
 - `Patterns.EMAIL_ADDRESS` → 정규식 직접 작성 (완전히 동일한 규칙은 아님)
@@ -67,24 +114,25 @@
 - 키보드 오버플로 방지용 `SingleChildScrollView` 필요 (Compose는 불필요했음)
 - TextField는 자체 컨트롤러가 값을 보유 → Compose처럼 State가 입력값을 완전히 제어하지 않음
 
-### Google 로그인
-| 항목 | Native | Flutter |
-|---|---|---|
-| 라이브러리 | Credential Manager + googleid | google_sign_in 7.x |
-| Activity 전달 | Intent에 Activity 실어서 ViewModel까지 전달 (예외 허용) | 불필요 — 플러그인 내부 처리 |
-| 웹 클라이언트 ID | BuildConfig에 직접 설정 | google-services.json(client_type: 3)에서 자동 로드 |
-| 계정 선택 흐름 | One Tap 실패 시 SignInWithGoogle로 재시도 직접 구현 | authenticate() 한 번으로 플러그인이 처리 |
-| 초기화 | 없음 | authenticate() 전 initialize() 필수 |
-
-- 코드량은 크게 줄었지만 계정 선택 흐름을 세부적으로 제어할 수 없음
-- Dart는 모든 클래스가 암묵적 인터페이스 → 일반 클래스도 `implements`로 테스트 대역 생성 가능
+### 테스트
+- 위젯 테스트가 기본으로 PC에서 실행 (Native Compose UI 테스트는 기본이 에뮬, PC 실행은 Robolectric 필요)
+- Dart는 모든 클래스가 암묵적 인터페이스 → `extends Fake implements X`로 필요한 메서드만 구현한 테스트 대역 생성 (Native는 MockK 등 외부 라이브러리 사용)
+- Repository 인터페이스 + 생성자 주입 구조 덕분에 Firebase 없이 앱 전체를 테스트 가능
 
 ---
 
-## 공통 개선 후보 (Native / Flutter 양쪽)
-- [인증] 회원가입: 계정 생성 후 닉네임 설정 실패 시 실패 반환 → 재시도하면 "이미 사용 중인 이메일"
-- [인증] Google 로그인: 계정 선택 취소 시에도 에러 문구 표시 (취소 메시지가 ViewModel에서 덮어써짐)
+## 개선 기록
+
+### Flutter에서 개선해서 구현한 것
+- [인증] 회원가입: 계정 생성 후 닉네임 설정이 실패해도 가입 성공으로 처리, 닉네임은 users 문서에 명시적으로 저장
+- [인증] Google 로그인: 계정 선택 취소 시 에러 문구 없이 원래 상태로 복귀
+- [인증] 로그아웃 시 Google 세션도 정리 (다음 로그인 때 이전 계정 자동 선택 방지)
+
+### Native 개선 후보
+- [인증] 위 Flutter 개선 3건 역적용
+- [인증] 로그인 후 유저 저장을 ViewModel → UseCase로 이동
+- [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
 ## 실기기 검증 대기
 - [인증] 회원가입 완료 SnackBar 표시
-- [인증] Google 로그인 전체 흐름
+- [인증] Google 로그인 전체 흐름 (계정 선택 → 홈, 취소 시 문구 없음, 로그아웃 후 재로그인)
