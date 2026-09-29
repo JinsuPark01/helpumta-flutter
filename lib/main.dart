@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'app/app.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -9,23 +10,4 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(const HelpumtaApp());
-}
-
-class HelpumtaApp extends StatelessWidget {
-  const HelpumtaApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '헬품타',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const Scaffold(
-        body: Center(
-          child: Text('Firebase 연결 완료'),
-        ),
-      ),
-    );
-  }
 }
