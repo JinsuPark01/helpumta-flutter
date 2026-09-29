@@ -17,3 +17,8 @@ final class LoginPasswordChanged extends LoginEvent {
 final class LoginSubmitted extends LoginEvent {
   const LoginSubmitted();
 }
+
+/// 네이티브 Intent.GoogleLogin(activity) — Flutter는 Activity 불필요
+final class LoginGoogleRequested extends LoginEvent {
+  const LoginGoogleRequested();
+}

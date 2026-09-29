@@ -123,12 +123,14 @@ class _LoginContent extends StatelessWidget {
                   ),
                 ),
 
-                // 구글 로그인 버튼 — Google 로그인 단계에서 연결
+                // 구글 로그인 버튼
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: OutlinedButton(
-                    onPressed: null,
+                    onPressed: state.isLoading
+                        ? null
+                        : () => onEvent(const LoginGoogleRequested()),
                     child: const Text('Google로 로그인'),
                   ),
                 ),

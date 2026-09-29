@@ -59,6 +59,22 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<User>> googleLogin(String idToken) async {
+    try {
+      final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
+      final result = await _firebaseAuth.signInWithCredential(credential);
+
+      final firebaseUser = result.user;
+      if (firebaseUser == null) {
+        return Result.error(Exception('구글 로그인에 실패했습니다'));
+      }
+      return Result.ok(firebaseUser.toDomain());
+    } on Exception catch (e) {
+      return Result.error(AuthException(e.toAuthError()));
+    }
+  }
+
+  @override
   String? getCurrentUserId() => _firebaseAuth.currentUser?.uid;
 
   @override

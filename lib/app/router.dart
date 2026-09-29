@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/auth/google_auth_client.dart';
 import '../domain/repository/auth_repository.dart';
 import '../domain/repository/user_repository.dart';
 import '../domain/usecase/email_login_use_case.dart';
+import '../domain/usecase/google_login_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
 import '../presentation/common/placeholder_screen.dart';
@@ -42,26 +44,33 @@ GoRouter createRouter(AuthRepository authRepository) {
     routes: [
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => BlocProvider(
-          create: (context) => LoginBloc(
-            emailLoginUseCase:
-            EmailLoginUseCase(context.read<AuthRepository>()),
-          ),
-          child: const LoginScreen(),
-        ),
+        builder: (context, state) {
+          final authRepository = context.read<AuthRepository>();
+          final userRepository = context.read<UserRepository>();
+          return BlocProvider(
+            create: (context) => LoginBloc(
+              emailLoginUseCase: EmailLoginUseCase(authRepository),
+              googleLoginUseCase: GoogleLoginUseCase(authRepository),
+              googleAuthClient: context.read<GoogleAuthClient>(),
+              saveUserUseCase: SaveUserUseCase(authRepository, userRepository),
+            ),
+            child: const LoginScreen(),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.signUp,
-        builder: (context, state) => BlocProvider(
-          create: (context) => SignUpBloc(
-            signUpUseCase: SignUpUseCase(context.read<AuthRepository>()),
-            saveUserUseCase: SaveUserUseCase(
-              context.read<AuthRepository>(),
-              context.read<UserRepository>(),
+        builder: (context, state) {
+          final authRepository = context.read<AuthRepository>();
+          final userRepository = context.read<UserRepository>();
+          return BlocProvider(
+            create: (context) => SignUpBloc(
+              signUpUseCase: SignUpUseCase(authRepository),
+              saveUserUseCase: SaveUserUseCase(authRepository, userRepository),
             ),
-          ),
-          child: const SignUpScreen(),
-        ),
+            child: const SignUpScreen(),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.home,

@@ -37,7 +37,7 @@
 
 ---
 
-## 1. 인증 (이메일 로그인 / 회원가입)
+## 1. 인증
 
 ### 구조
 | 항목 | Native | Flutter |
@@ -67,5 +67,24 @@
 - 키보드 오버플로 방지용 `SingleChildScrollView` 필요 (Compose는 불필요했음)
 - TextField는 자체 컨트롤러가 값을 보유 → Compose처럼 State가 입력값을 완전히 제어하지 않음
 
-### 확인 필요
-- 회원가입 완료 SnackBar 표시 여부 (홈 이동 직후)
+### Google 로그인
+| 항목 | Native | Flutter |
+|---|---|---|
+| 라이브러리 | Credential Manager + googleid | google_sign_in 7.x |
+| Activity 전달 | Intent에 Activity 실어서 ViewModel까지 전달 (예외 허용) | 불필요 — 플러그인 내부 처리 |
+| 웹 클라이언트 ID | BuildConfig에 직접 설정 | google-services.json(client_type: 3)에서 자동 로드 |
+| 계정 선택 흐름 | One Tap 실패 시 SignInWithGoogle로 재시도 직접 구현 | authenticate() 한 번으로 플러그인이 처리 |
+| 초기화 | 없음 | authenticate() 전 initialize() 필수 |
+
+- 코드량은 크게 줄었지만 계정 선택 흐름을 세부적으로 제어할 수 없음
+- Dart는 모든 클래스가 암묵적 인터페이스 → 일반 클래스도 `implements`로 테스트 대역 생성 가능
+
+---
+
+## 공통 개선 후보 (Native / Flutter 양쪽)
+- [인증] 회원가입: 계정 생성 후 닉네임 설정 실패 시 실패 반환 → 재시도하면 "이미 사용 중인 이메일"
+- [인증] Google 로그인: 계정 선택 취소 시에도 에러 문구 표시 (취소 메시지가 ViewModel에서 덮어써짐)
+
+## 실기기 검증 대기
+- [인증] 회원가입 완료 SnackBar 표시
+- [인증] Google 로그인 전체 흐름

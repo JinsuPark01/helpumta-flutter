@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "312771188756-tvk29kbpso49k488gev0to1fpoaf9iqs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jinsupark.helpumta_flutter",
+            "certificate_hash": "18f448d8ef4844365d19cb4eef9a28fede8ce6de"
+          }
+        },
+        {
           "client_id": "312771188756-t5qb8eqgm1jn9rv2lt54uj15fhd5j9nj.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +37,13 @@
             {
               "client_id": "312771188756-t5qb8eqgm1jn9rv2lt54uj15fhd5j9nj.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "312771188756-188nito968l6eh08942l13g0mtkocd7d.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.jinsupark.helpumtaFlutter"
+              }
             }
           ]
         }

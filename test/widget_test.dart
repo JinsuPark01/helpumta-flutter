@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:helpumta_flutter/app/app.dart';
+import 'package:helpumta_flutter/data/auth/google_auth_client.dart';
 import 'package:helpumta_flutter/domain/repository/auth_repository.dart';
 import 'package:helpumta_flutter/domain/repository/user_repository.dart';
 
@@ -12,12 +13,15 @@ class FakeAuthRepository extends Fake implements AuthRepository {
 
 class FakeUserRepository extends Fake implements UserRepository {}
 
+class FakeGoogleAuthClient extends Fake implements GoogleAuthClient {}
+
 void main() {
   testWidgets('로그아웃 상태로 시작하면 로그인 화면으로 이동한다', (tester) async {
     await tester.pumpWidget(
       HelpumtaApp(
         authRepository: FakeAuthRepository(),
         userRepository: FakeUserRepository(),
+        googleAuthClient: FakeGoogleAuthClient(),
       ),
     );
     await tester.pumpAndSettle();

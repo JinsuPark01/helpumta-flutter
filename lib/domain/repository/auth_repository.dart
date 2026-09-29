@@ -13,6 +13,8 @@ abstract interface class AuthRepository {
     required String nickname,
   });
 
+  Future<Result<User>> googleLogin(String idToken);
+
   String? getCurrentUserId();
 
   String? getCurrentUserName();

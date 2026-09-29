@@ -56,13 +56,13 @@ class DefaultFirebaseOptions {
     projectId: 'helpumta-flutter',
     storageBucket: 'helpumta-flutter.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDlTeh3xvWf3nS5ubF2eToMcgWVekn_2IY',
     appId: '1:312771188756:ios:1bc7b86effae8426276f01',
     messagingSenderId: '312771188756',
     projectId: 'helpumta-flutter',
     storageBucket: 'helpumta-flutter.firebasestorage.app',
+    androidClientId: '312771188756-tvk29kbpso49k488gev0to1fpoaf9iqs.apps.googleusercontent.com',
     iosClientId: '312771188756-188nito968l6eh08942l13g0mtkocd7d.apps.googleusercontent.com',
     iosBundleId: 'com.jinsupark.helpumtaFlutter',
   );
