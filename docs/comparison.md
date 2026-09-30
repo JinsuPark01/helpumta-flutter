@@ -62,7 +62,7 @@
 | 로그인 상태 분기 | NavGraph 호출부에서 `startDestination` 결정 후 주입 | `redirect`에서 매 이동마다 검사 |
 | 화면의 이동 방식 | 화면은 콜백만 받고 경로는 NavGraph만 앎 | 화면이 `context.go()`로 직접 이동 (go_router 관례) |
 
-- go_router는 라우트 선언 순서대로 매칭 → `/group/create`를 `/group/:groupId`보다 먼저 선언해야 함
+- go_router는 라우트 선언 순서대로 매칭 → `group/create`를 `group/:groupId`보다 먼저 선언해야 함
 - redirect는 시작 화면뿐 아니라 모든 이동에 적용 → 로그인 상태에서 로그인 화면 접근 차단까지 한 곳에서 처리
 
 ---
@@ -121,18 +121,49 @@
 
 ---
 
+## 2. 홈 (그룹 목록)
+
+### 구조
+| 항목 | Native | Flutter |
+|---|---|---|
+| 단순 이동 (그룹 카드, 생성 버튼) | Intent → ViewModel → SideEffect → 이동 | 화면에서 `context.push()` 직접 호출 |
+| Bloc/ViewModel 역할 | 목록 로딩 + 이동 중계 | 목록 로딩만 |
+| 최초 로딩 | ViewModel `init` 블록 | `BlocProvider(create: ...)..add(event)` |
+| 화면 복귀 시 새로고침 | `LifecycleEventObserver` `ON_RESUME` | `await context.push()` 완료 후 이벤트 전송 |
+| 그리드 | `LazyVerticalGrid` | `GridView.builder` |
+| 상태별 화면 분기 | `when` + 조건식 | `switch` + 패턴 매칭 (`HomeState(groups: [_, ...])`) |
+| 이미지 로딩 | Coil3 `AsyncImage` | `cached_network_image` (디스크 캐시) |
+
+- Flutter엔 화면 단위 ON_RESUME가 없음 → `push()`가 돌려주는 Future로 복귀 시점을 잡는 것이 관례
+- 네이티브는 앱이 백그라운드에서 돌아올 때도 새로고침됐지만, 그룹 목록은 본인 행동(생성·탈퇴)으로만 바뀌어 Flutter에선 생략
+- 라우트를 `/home` 하위로 중첩 → `go('/home/group/xxx')`가 "홈 → 대상" 스택을 만들어 `popUpTo(Home)`과 같은 효과
+
+### UI
+- `Box` 겹치기 → `Stack`
+- `Card(onClick)` → InkWell 물결이 자식 아래에 그려져 이미지에 가려짐 → 투명 `Material` + `InkWell`을 Stack 맨 위에 배치
+- 그라데이션 시작점: 네이티브 `startY = 300f`(픽셀 고정) → Flutter `stops`(비율)로 해상도와 무관하게 동일 위치
+- 카드 비율: `Modifier.aspectRatio(1f)` → GridView는 칸 크기를 그리드가 정하므로 `childAspectRatio: 1`로 지정
+- `colorScheme.surfaceVariant` → Flutter M3 권장 토큰 `surfaceContainerHighest`
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
 - [인증] 회원가입: 계정 생성 후 닉네임 설정이 실패해도 가입 성공으로 처리, 닉네임은 users 문서에 명시적으로 저장
 - [인증] Google 로그인: 계정 선택 취소 시 에러 문구 없이 원래 상태로 복귀
 - [인증] 로그아웃 시 Google 세션도 정리 (다음 로그인 때 이전 계정 자동 선택 방지)
+- [홈] 로딩 성공 시 이전 에러 문구 초기화 (네이티브는 한 번 실패하면 이후 성공해도 에러 화면 유지)
+- [홈] 목록이 있으면 새로고침 중에도 그리드 유지 (네이티브는 복귀할 때마다 스피너로 깜빡임)
+- [홈] 에러 시 Firebase 원문 대신 고정 한글 문구 표시
 
 ### Native 개선 후보
-- [인증] 위 Flutter 개선 3건 역적용
+- [인증] 위 Flutter 인증 개선 3건 역적용
 - [인증] 로그인 후 유저 저장을 ViewModel → UseCase로 이동
+- [홈] 위 Flutter 홈 개선 3건 역적용
 - [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
 ## 실기기 검증 대기
 - [인증] 회원가입 완료 SnackBar 표시
 - [인증] Google 로그인 전체 흐름 (계정 선택 → 홈, 취소 시 문구 없음, 로그아웃 후 재로그인)
+- [홈] 그룹 그리드 표시, 이미지 카드 그라데이션 (그룹 생성 후 확인)

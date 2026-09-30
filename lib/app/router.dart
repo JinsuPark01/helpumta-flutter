@@ -3,12 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../domain/repository/auth_repository.dart';
+import '../domain/repository/group_repository.dart';
 import '../domain/repository/user_repository.dart';
 import '../domain/usecase/email_login_use_case.dart';
+import '../domain/usecase/get_groups_use_case.dart';
 import '../domain/usecase/google_login_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
 import '../presentation/common/placeholder_screen.dart';
+import '../presentation/home/home_bloc.dart';
+import '../presentation/home/home_event.dart';
+import '../presentation/home/home_screen.dart';
 import '../presentation/login/login_bloc.dart';
 import '../presentation/login/login_screen.dart';
 import '../presentation/sign_up/sign_up_bloc.dart';
@@ -18,13 +23,14 @@ abstract final class AppRoutes {
   static const login = '/login';
   static const signUp = '/signup';
   static const home = '/home';
-  static const groupCreate = '/group/create';
-  static const groupDetail = '/group/:groupId';
-  static const recordCreate = '/group/:groupId/record';
   static const myPage = '/mypage';
 
-  static String groupDetailPath(String groupId) => '/group/$groupId';
-  static String recordCreatePath(String groupId) => '/group/$groupId/record';
+  // 그룹 관련 화면은 /home 하위 → go()로 이동해도 "홈 → 대상" 스택이 만들어짐
+  static const groupCreate = '/home/group/create';
+
+  static String groupDetailPath(String groupId) => '/home/group/$groupId';
+  static String recordCreatePath(String groupId) =>
+      '/home/group/$groupId/record';
 }
 
 GoRouter createRouter(AuthRepository authRepository) {
@@ -77,43 +83,48 @@ GoRouter createRouter(AuthRepository authRepository) {
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => PlaceholderScreen(
-          title: '홈',
-          links: [
-            const PlaceholderLink('그룹 생성', AppRoutes.groupCreate),
-            PlaceholderLink(
-              '그룹 상세 (sample)',
-              AppRoutes.groupDetailPath('sample'),
+        builder: (context, state) => BlocProvider(
+          // 생성 직후 첫 로딩 (네이티브 ViewModel init 블록 역할)
+          create: (context) => HomeBloc(
+            getGroupsUseCase: GetGroupsUseCase(
+              context.read<GroupRepository>(),
+              context.read<AuthRepository>(),
             ),
-            const PlaceholderLink('마이페이지', AppRoutes.myPage),
-          ],
+          )..add(const HomeGroupsRequested()),
+          child: const HomeScreen(),
         ),
-      ),
-      // groupCreate는 반드시 groupDetail보다 위에 있어야 함
-      // (아래에 두면 'create'가 groupId로 매칭됨)
-      GoRoute(
-        path: AppRoutes.groupCreate,
-        builder: (context, state) =>
-        const PlaceholderScreen(title: '그룹 생성'),
-      ),
-      GoRoute(
-        path: AppRoutes.groupDetail,
-        builder: (context, state) {
-          final groupId = state.pathParameters['groupId']!;
-          return PlaceholderScreen(
-            title: '그룹 상세: $groupId',
-            links: [
-              PlaceholderLink('기록 작성', AppRoutes.recordCreatePath(groupId)),
+        routes: [
+          // group/create는 반드시 group/:groupId보다 위에 있어야 함
+          GoRoute(
+            path: 'group/create',
+            builder: (context, state) =>
+            const PlaceholderScreen(title: '그룹 생성'),
+          ),
+          GoRoute(
+            path: 'group/:groupId',
+            builder: (context, state) {
+              final groupId = state.pathParameters['groupId']!;
+              return PlaceholderScreen(
+                title: '그룹 상세: $groupId',
+                links: [
+                  PlaceholderLink(
+                    '기록 작성',
+                    AppRoutes.recordCreatePath(groupId),
+                  ),
+                ],
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'record',
+                builder: (context, state) {
+                  final groupId = state.pathParameters['groupId']!;
+                  return PlaceholderScreen(title: '기록 작성: $groupId');
+                },
+              ),
             ],
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.recordCreate,
-        builder: (context, state) {
-          final groupId = state.pathParameters['groupId']!;
-          return PlaceholderScreen(title: '기록 작성: $groupId');
-        },
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.myPage,
