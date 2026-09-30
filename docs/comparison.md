@@ -30,6 +30,9 @@
 | 상태관리 | Bloc | MVI 계열로 단방향 흐름 유지. Riverpod과 함께 현업 양강 |
 | 일회성 효과 | status enum + BlocListener | Bloc 현업 표준. 요청마다 loading을 거쳐 같은 효과가 반복돼도 동작 |
 | 단순 화면 이동 | 화면에서 `context.go/push` 직접 호출 | go_router 관례. 로직 없는 이동은 Bloc을 거치지 않음 |
+| 화면 간 결과 전달 | `context.pop(결과)` + `await context.push()` | 작업을 완료한 화면만 결과를 돌려주고, 받는 쪽은 결과가 있을 때만 반응 |
+| 홈 새로고침 | 어느 화면에서 돌아오든 새로고침 (예외) | 덮어쓸 화면 상태가 없고 새로고침 중에도 그리드 유지. 목록이 바뀌는 경로마다 결과를 챙기는 것보다 누락 위험이 적음 |
+| 오프라인 쓰기 | 서버 쓰기 전 연결 확인, 오프라인이면 즉시 실패 | Firestore는 오프라인 쓰기를 임시 저장하고 서버 응답까지 대기 → 무한 로딩과 중복 생성 방지 |
 | 오케스트레이션 | UseCase가 다른 UseCase 호출 | "로그인 후 유저 저장" 같은 비즈니스 흐름을 UI 레이어에서 분리 |
 | Service 레이어 | 두지 않음 | Firebase SDK 자체가 Service 역할 |
 | Domain의 equatable | 허용 | Kotlin data class 역할 대체용 순수 Dart 패키지 |
@@ -147,6 +150,47 @@
 
 ---
 
+## 3. 그룹 생성
+
+### 구조
+| 항목 | Native | Flutter |
+|---|---|---|
+| 이미지 선택 | `rememberLauncherForActivityResult(PickVisualMedia())` 콜백 | `await ImagePicker().pickImage()` |
+| 이미지 전달 | `Uri.toString()` | `XFile.path` (파일 경로 문자열) |
+| 미리보기 | `AsyncImage(model = uri)` | `Image.file(File(path))` |
+| 압축 | `ImageCompressor` 직접 구현 (샘플링, 스케일, EXIF 회전, JPEG 인코딩) | `flutter_image_compress` + 크기 계산만 직접 |
+| 원본 크기 읽기 | `BitmapFactory.Options(inJustDecodeBounds = true)` | `ui.ImageDescriptor` |
+| 업로드 | `ref.putBytes(bytes, storageMetadata { })` | `ref.putData(bytes, SettableMetadata(...))` |
+| 이미지 파일명 | 랜덤 UUID | Firestore 문서 ID (그룹 ↔ 이미지 1:1) |
+| 생성 후 이동 | 생성 화면이 `navigate(상세) { popUpTo(Home) }` | 생성 화면이 `pop(groupId)` → 홈이 새로고침 후 상세로 `push` |
+
+- `flutter_image_compress`의 `minWidth`/`minHeight`는 이름과 달리 축소 기준이며, 가로·세로 비율 중 작은 쪽으로 축소함 → 원본 크기를 읽어 목표 **짧은 변** 길이를 넘겨야 "긴 변 1080" 결과가 나옴 (EXIF 회전과 무관하게 동작)
+- `image_picker`의 `maxWidth`/`imageQuality`로 고를 때 줄이는 방법도 있지만, 크기 정책이 UI로 올라오고 플랫폼별 리사이즈 차이 이슈가 있어 Data 레이어 압축 유지
+
+### 화면 간 결과 전달
+| | Native | Flutter |
+|---|---|---|
+| 결과 남기기 | `previousBackStackEntry?.savedStateHandle?.set(...)` | `context.pop(결과)` |
+| 결과 받기 | `getStateFlow()` 관찰 + `LaunchedEffect` | `await context.push()` 반환값 |
+| 신호 소비(리셋) | 직접 false로 되돌려야 함 | 불필요 (Future는 한 번만 완료) |
+
+- 네이티브에서 겪은 "신호를 놓치거나 리셋 타이밍이 꼬이는" 문제가 구조적으로 발생하지 않음
+- 주의: `go()`로 스택을 교체하면 기다리던 `push`의 Future가 완료되지 않음 → 처음엔 생성 화면에서 `go(상세)`로 이동했다가 홈 새로고침이 누락되는 버그 발생, `pop(결과)` 방식으로 수정
+
+### 오프라인 처리
+- Firestore는 오프라인 쓰기를 기기에 임시 저장하고 연결되면 전송 → `await`는 서버 응답까지 끝나지 않아 무한 로딩
+- Storage 업로드는 연결될 때까지 재시도(기본 최대 10분) 후 실패
+- 로딩 중 화면을 나가도 임시 저장된 쓰기는 남아 나중에 조용히 생성됨 → 재시도 시 중복 생성 위험
+- 타임아웃은 "실패 표시 후 실제로는 생성"되는 중복 문제가 있어 제외
+- `connectivity_plus`로 요청 전 연결 확인 → 명백한 오프라인은 즉시 "네트워크 연결을 확인해주세요". 와이파이는 잡혔지만 인터넷이 안 되는 경우는 판별 불가 (한계)
+- 연결 확인은 Data 레이어(`NetworkChecker`), 실패 종류는 Domain(`NetworkUnavailableException`)에 두어 Bloc은 Data를 모른 채 문구만 선택
+
+### UI
+- `Spacer(Modifier.weight(1f))`로 버튼을 바닥에 두면 Flutter에선 키보드가 올라올 때 오버플로 → `SliverFillRemaining(hasScrollBody: false)`로 평소엔 바닥 고정, 공간 부족 시 스크롤
+- 연속 실패 시 스낵바가 줄 서지 않도록 `hideCurrentSnackBar()` 후 표시
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
@@ -156,14 +200,25 @@
 - [홈] 로딩 성공 시 이전 에러 문구 초기화 (네이티브는 한 번 실패하면 이후 성공해도 에러 화면 유지)
 - [홈] 목록이 있으면 새로고침 중에도 그리드 유지 (네이티브는 복귀할 때마다 스피너로 깜빡임)
 - [홈] 에러 시 Firebase 원문 대신 고정 한글 문구 표시
+- [그룹 생성] 이미지 업로드 후 문서 저장 실패 시 업로드한 이미지 삭제 (고아 파일 방지)
+- [그룹 생성] 이름·설명 앞뒤 공백 제거 후 저장
+- [그룹 생성] 오프라인이면 요청 전에 즉시 실패 처리 (무한 로딩·중복 생성 방지)
 
 ### Native 개선 후보
 - [인증] 위 Flutter 인증 개선 3건 역적용
 - [인증] 로그인 후 유저 저장을 ViewModel → UseCase로 이동
 - [홈] 위 Flutter 홈 개선 3건 역적용
+- [그룹 생성] 위 Flutter 그룹 생성 개선 3건 역적용
 - [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
-## 실기기 검증 대기
+## 검증 대기
+
+### 실기기
 - [인증] 회원가입 완료 SnackBar 표시
 - [인증] Google 로그인 전체 흐름 (계정 선택 → 홈, 취소 시 문구 없음, 로그아웃 후 재로그인)
-- [홈] 그룹 그리드 표시, 이미지 카드 그라데이션 (그룹 생성 후 확인)
+- [홈] 이미지 카드 그라데이션 표시
+- [그룹 생성] 이미지 포함 생성 → Storage `groups/{문서ID}.jpg` 생성, 용량 감소 확인
+- [그룹 생성] 세로로 찍은 사진의 EXIF 회전 보정
+
+### 네이티브 동작 확인
+- [그룹 생성] 비행기 모드에서 생성 시 동작 (코드 기준 추론: 이미지 없으면 무한 로딩, 이미지 있으면 최대 10분 후 실패)

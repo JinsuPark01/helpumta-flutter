@@ -1,13 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app.dart';
 import 'data/auth/google_auth_client.dart';
+import 'data/network/network_checker.dart';
 import 'data/repository/auth_repository_impl.dart';
 import 'data/repository/group_repository_impl.dart';
 import 'data/repository/user_repository_impl.dart';
+import 'data/util/image_compressor.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -18,12 +21,19 @@ Future<void> main() async {
 
   // 앱 전체에서 인스턴스 하나만 사용 (Hilt @Singleton 역할)
   final firestore = FirebaseFirestore.instance;
+  final networkChecker = NetworkChecker();
+
   final authRepository = AuthRepositoryImpl(
     FirebaseAuth.instance,
     GoogleAuthClient(),
   );
   final userRepository = UserRepositoryImpl(firestore);
-  final groupRepository = GroupRepositoryImpl(firestore);
+  final groupRepository = GroupRepositoryImpl(
+    firestore,
+    FirebaseStorage.instance,
+    ImageCompressor(),
+    networkChecker,
+  );
 
   runApp(
     HelpumtaApp(

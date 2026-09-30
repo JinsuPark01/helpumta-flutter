@@ -5,12 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../domain/repository/auth_repository.dart';
 import '../domain/repository/group_repository.dart';
 import '../domain/repository/user_repository.dart';
+import '../domain/usecase/create_group_use_case.dart';
 import '../domain/usecase/email_login_use_case.dart';
 import '../domain/usecase/get_groups_use_case.dart';
 import '../domain/usecase/google_login_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
 import '../presentation/common/placeholder_screen.dart';
+import '../presentation/group_create/group_create_bloc.dart';
+import '../presentation/group_create/group_create_screen.dart';
 import '../presentation/home/home_bloc.dart';
 import '../presentation/home/home_event.dart';
 import '../presentation/home/home_screen.dart';
@@ -97,8 +100,15 @@ GoRouter createRouter(AuthRepository authRepository) {
           // group/create는 반드시 group/:groupId보다 위에 있어야 함
           GoRoute(
             path: 'group/create',
-            builder: (context, state) =>
-            const PlaceholderScreen(title: '그룹 생성'),
+            builder: (context, state) => BlocProvider(
+              create: (context) => GroupCreateBloc(
+                createGroupUseCase: CreateGroupUseCase(
+                  context.read<GroupRepository>(),
+                  context.read<AuthRepository>(),
+                ),
+              ),
+              child: const GroupCreateScreen(),
+            ),
           ),
           GoRoute(
             path: 'group/:groupId',

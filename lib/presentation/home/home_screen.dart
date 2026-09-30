@@ -22,6 +22,19 @@ class HomeScreen extends StatelessWidget {
     if (!bloc.isClosed) bloc.add(const HomeGroupsRequested());
   }
 
+  /// 그룹 생성 화면이 만든 그룹 ID를 돌려주면 목록 새로고침 후 상세로 이동
+  static Future<void> _createGroup(BuildContext context) async {
+    final bloc = context.read<HomeBloc>();
+    final groupId = await context.push<String>(AppRoutes.groupCreate);
+    if (bloc.isClosed) return;
+
+    bloc.add(const HomeGroupsRequested());
+
+    if (groupId != null && context.mounted) {
+      await _pushAndRefresh(context, AppRoutes.groupDetailPath(groupId));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<HomeBloc, HomeState>(
@@ -29,7 +42,7 @@ class HomeScreen extends StatelessWidget {
         state: state,
         onGroupClick: (groupId) =>
             _pushAndRefresh(context, AppRoutes.groupDetailPath(groupId)),
-        onCreateClick: () => _pushAndRefresh(context, AppRoutes.groupCreate),
+        onCreateClick: () => _createGroup(context),
         onMyPageClick: () => context.push(AppRoutes.myPage),
       ),
     );
