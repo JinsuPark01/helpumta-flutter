@@ -191,6 +191,41 @@
 
 ---
 
+## 4. 그룹 상세
+
+### 구조
+| 항목 | Native | Flutter |
+|---|---|---|
+| 날짜 표현 | millis(Long) + `Calendar` 계산 | Domain은 `DateTime`, Firestore 저장만 millis |
+| 날짜 이동 | `Calendar.add(DAY_OF_MONTH)` | `DateTime(y, m, d + n)` (월말·서머타임 자동 처리) |
+| 병렬 로딩 | `supervisorScope` + `async` × 3 | `await (a, b, c).wait` |
+| 재진입 방지 | `isSameGroup`이면 로딩 skip (`LaunchedEffect` 재실행 대응) | 불필요 — Bloc은 라우트당 한 번만 생성 |
+| 달력 날짜 | Material3 DatePicker가 UTC 반환 → 로컬 변환 함수 필요 | `showDatePicker`가 로컬 `DateTime` 반환 |
+| 확인 다이얼로그 | `showLeaveDialog`, `deleteTarget` 상태 변수 | `await showDialog<bool>()` 반환값 |
+| 메뉴 | `DropdownMenu` + `menuExpanded` 상태 | `PopupMenuButton` (열림 상태 자체 관리) |
+| 작성 완료 후 새로고침 | `savedStateHandle` 신호 + 소비 | `await push<bool>()` 결과가 `true`일 때만 |
+| 단순 피드백 (이미 작성함) | Intent → ViewModel → SideEffect 토스트 | 화면에서 바로 스낵바 |
+
+### 동시성 제어
+| 상황 | Native | Flutter |
+|---|---|---|
+| 날짜 연타 | 대응 없음 → 늦게 온 이전 날짜 응답이 최신 화면을 덮어쓸 수 있음 | `restartable()` → 이전 요청 결과 무시 |
+| 탈퇴 중복 요청 | `if (isLeaving) return` | `droppable()` |
+
+- Bloc은 이벤트별로 처리 규칙을 선언형으로 지정 (`bloc_concurrency`)
+
+### 데이터
+- 탈퇴 시 내 기록 일괄 삭제를 WriteBatch로 처리 → 일부만 삭제되는 상태 방지
+- 삭제 순서: 네이티브는 이미지 → 문서, Flutter는 문서 → 이미지. 문서 삭제 실패 시 "이미지 깨진 기록"이 남는 대신, 최악의 경우에도 보이지 않는 고아 파일만 남음
+- 새 Firebase 프로젝트는 복합 인덱스를 다시 생성해야 함 (`groupId` + `createdAt`, `groupId` + `userId` + `createdAt`). 인덱스 없으면 `FAILED_PRECONDITION` + 생성 링크가 로그에 출력
+
+### UI
+- 한국어 달력을 위해 `flutter_localizations` + `locale: ko` 설정 필요 (Android는 시스템 언어를 따름)
+- 네이티브 커스텀 비활성 색(`DisabledGray`) 대신 M3 비활성 규칙(onSurface 12% / 38%) 사용
+- 초대 코드 복사: Flutter엔 초대 참여 기능이 없어 그룹 이름만 복사 (메뉴는 유지)
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
@@ -203,12 +238,19 @@
 - [그룹 생성] 이미지 업로드 후 문서 저장 실패 시 업로드한 이미지 삭제 (고아 파일 방지)
 - [그룹 생성] 이름·설명 앞뒤 공백 제거 후 저장
 - [그룹 생성] 오프라인이면 요청 전에 즉시 실패 처리 (무한 로딩·중복 생성 방지)
+- [그룹 상세] 날짜 연타 시 이전 응답이 최신 화면을 덮어쓰지 않도록 이전 요청 취소
+- [그룹 상세] 날짜 변경 즉시 이전 날짜 기록을 비우고 로딩 표시 (네이티브는 응답 전까지 이전 날짜 기록이 남음)
+- [그룹 상세] 탈퇴 시 내 기록 일괄 삭제를 Batch로 처리
+- [그룹 상세] 삭제 시 문서 먼저, 이미지 나중 (깨진 기록 방지)
+- [그룹 상세] 삭제·탈퇴에 오프라인 사전 확인 적용
+- [그룹 상세] 그룹 로딩 실패 시 Firebase 원문 대신 고정 한글 문구 표시
 
 ### Native 개선 후보
 - [인증] 위 Flutter 인증 개선 3건 역적용
 - [인증] 로그인 후 유저 저장을 ViewModel → UseCase로 이동
 - [홈] 위 Flutter 홈 개선 3건 역적용
 - [그룹 생성] 위 Flutter 그룹 생성 개선 3건 역적용
+- [그룹 상세] 위 Flutter 그룹 상세 개선 6건 역적용 (날짜 연타는 `Job` 취소 또는 `collectLatest`로 대응 가능)
 - [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
 ## 검증 대기
@@ -219,6 +261,10 @@
 - [홈] 이미지 카드 그라데이션 표시
 - [그룹 생성] 이미지 포함 생성 → Storage `groups/{문서ID}.jpg` 생성, 용량 감소 확인
 - [그룹 생성] 세로로 찍은 사진의 EXIF 회전 보정
+
+### 기록 작성 구현 후
+- [그룹 상세] 작성 완료 → 다른 날짜를 보고 있었어도 오늘로 리셋 + 새로고침
+- [그룹 상세] 작성 화면에서 그냥 뒤로가기 → 날짜 유지
 
 ### 네이티브 동작 확인
 - [그룹 생성] 비행기 모드에서 생성 시 동작 (코드 기준 추론: 이미지 없으면 무한 로딩, 이미지 있으면 최대 10분 후 실패)

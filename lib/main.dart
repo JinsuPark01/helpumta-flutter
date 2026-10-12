@@ -9,6 +9,7 @@ import 'data/auth/google_auth_client.dart';
 import 'data/network/network_checker.dart';
 import 'data/repository/auth_repository_impl.dart';
 import 'data/repository/group_repository_impl.dart';
+import 'data/repository/record_repository_impl.dart';
 import 'data/repository/user_repository_impl.dart';
 import 'data/util/image_compressor.dart';
 import 'firebase_options.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
 
   // 앱 전체에서 인스턴스 하나만 사용 (Hilt @Singleton 역할)
   final firestore = FirebaseFirestore.instance;
+  final storage = FirebaseStorage.instance;
   final networkChecker = NetworkChecker();
 
   final authRepository = AuthRepositoryImpl(
@@ -30,8 +32,13 @@ Future<void> main() async {
   final userRepository = UserRepositoryImpl(firestore);
   final groupRepository = GroupRepositoryImpl(
     firestore,
-    FirebaseStorage.instance,
+    storage,
     ImageCompressor(),
+    networkChecker,
+  );
+  final recordRepository = RecordRepositoryImpl(
+    firestore,
+    storage,
     networkChecker,
   );
 
@@ -40,6 +47,7 @@ Future<void> main() async {
       authRepository: authRepository,
       userRepository: userRepository,
       groupRepository: groupRepository,
+      recordRepository: recordRepository,
     ),
   );
 }

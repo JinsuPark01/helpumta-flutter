@@ -1,19 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../domain/repository/auth_repository.dart';
 import '../domain/repository/group_repository.dart';
+import '../domain/repository/record_repository.dart';
 import '../domain/repository/user_repository.dart';
 import '../domain/usecase/create_group_use_case.dart';
+import '../domain/usecase/delete_record_use_case.dart';
 import '../domain/usecase/email_login_use_case.dart';
+import '../domain/usecase/get_current_user_id_use_case.dart';
+import '../domain/usecase/get_group_detail_use_case.dart';
 import '../domain/usecase/get_groups_use_case.dart';
+import '../domain/usecase/get_records_by_group_use_case.dart';
 import '../domain/usecase/google_login_use_case.dart';
+import '../domain/usecase/has_wrote_today_use_case.dart';
+import '../domain/usecase/leave_group_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
 import '../presentation/common/placeholder_screen.dart';
 import '../presentation/group_create/group_create_bloc.dart';
 import '../presentation/group_create/group_create_screen.dart';
+import '../presentation/group_detail/group_detail_bloc.dart';
+import '../presentation/group_detail/group_detail_event.dart';
+import '../presentation/group_detail/group_detail_screen.dart';
 import '../presentation/home/home_bloc.dart';
 import '../presentation/home/home_event.dart';
 import '../presentation/home/home_screen.dart';
@@ -28,12 +39,19 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const myPage = '/mypage';
 
-  // 그룹 관련 화면은 /home 하위 → go()로 이동해도 "홈 → 대상" 스택이 만들어짐
+  // 그룹 관련 화면은 /home 하위 → 뒤로가기 시 홈으로 돌아옴
   static const groupCreate = '/home/group/create';
 
   static String groupDetailPath(String groupId) => '/home/group/$groupId';
+
   static String recordCreatePath(String groupId) =>
       '/home/group/$groupId/record';
+
+  static String recordEditPath(String groupId, String recordId) =>
+      '/home/group/$groupId/record?recordId=$recordId';
+
+  static String extractPath(String groupId, DateTime date) =>
+      '/home/group/$groupId/extract?date=${DateFormat('yyyy-MM-dd').format(date)}';
 }
 
 GoRouter createRouter(AuthRepository authRepository) {
@@ -114,22 +132,55 @@ GoRouter createRouter(AuthRepository authRepository) {
             path: 'group/:groupId',
             builder: (context, state) {
               final groupId = state.pathParameters['groupId']!;
-              return PlaceholderScreen(
-                title: '그룹 상세: $groupId',
-                links: [
-                  PlaceholderLink(
-                    '기록 작성',
-                    AppRoutes.recordCreatePath(groupId),
+              final authRepository = context.read<AuthRepository>();
+              final groupRepository = context.read<GroupRepository>();
+              final recordRepository = context.read<RecordRepository>();
+
+              return BlocProvider(
+                create: (context) => GroupDetailBloc(
+                  groupId: groupId,
+                  getGroupDetailUseCase: GetGroupDetailUseCase(groupRepository),
+                  getRecordsByGroupUseCase:
+                  GetRecordsByGroupUseCase(recordRepository),
+                  hasWroteTodayUseCase:
+                  HasWroteTodayUseCase(recordRepository, authRepository),
+                  getCurrentUserIdUseCase:
+                  GetCurrentUserIdUseCase(authRepository),
+                  deleteRecordUseCase:
+                  DeleteRecordUseCase(recordRepository, authRepository),
+                  leaveGroupUseCase: LeaveGroupUseCase(
+                    authRepository,
+                    groupRepository,
+                    recordRepository,
                   ),
-                ],
+                )..add(const GroupDetailStarted()),
+                child: const GroupDetailScreen(),
               );
             },
             routes: [
               GoRoute(
                 path: 'record',
+                // 기록 작성·수정 구현 전 임시 화면: 저장 완료 결과(true) 전달 테스트용
                 builder: (context, state) {
-                  final groupId = state.pathParameters['groupId']!;
-                  return PlaceholderScreen(title: '기록 작성: $groupId');
+                  final recordId = state.uri.queryParameters['recordId'];
+                  return Scaffold(
+                    appBar: AppBar(
+                      title: Text(recordId == null ? '기록 작성 (임시)' : '기록 수정 (임시)'),
+                    ),
+                    body: Center(
+                      child: FilledButton(
+                        onPressed: () => context.pop(true),
+                        child: const Text('저장 완료 (임시)'),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'extract',
+                builder: (context, state) {
+                  final date = state.uri.queryParameters['date'] ?? '';
+                  return PlaceholderScreen(title: '사진 추출: $date');
                 },
               ),
             ],

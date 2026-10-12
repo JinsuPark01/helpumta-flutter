@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../domain/repository/auth_repository.dart';
 import '../domain/repository/group_repository.dart';
+import '../domain/repository/record_repository.dart';
 import '../domain/repository/user_repository.dart';
 import 'router.dart';
 
@@ -13,11 +15,13 @@ class HelpumtaApp extends StatefulWidget {
     required this.authRepository,
     required this.userRepository,
     required this.groupRepository,
+    required this.recordRepository,
   });
 
   final AuthRepository authRepository;
   final UserRepository userRepository;
   final GroupRepository groupRepository;
+  final RecordRepository recordRepository;
 
   @override
   State<HelpumtaApp> createState() => _HelpumtaAppState();
@@ -40,12 +44,23 @@ class _HelpumtaAppState extends State<HelpumtaApp> {
         RepositoryProvider<GroupRepository>.value(
           value: widget.groupRepository,
         ),
+        RepositoryProvider<RecordRepository>.value(
+          value: widget.recordRepository,
+        ),
       ],
       child: MaterialApp.router(
         title: '헬품타',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
+        // 달력 등 기본 위젯을 한국어로 표시
+        locale: const Locale('ko'),
+        supportedLocales: const [Locale('ko')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         routerConfig: _router,
       ),
     );

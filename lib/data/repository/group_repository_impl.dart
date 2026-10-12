@@ -24,17 +24,36 @@ class GroupRepositoryImpl implements GroupRepository {
 
   static const _groupImageMaxSize = 1080;
 
+  CollectionReference<Map<String, dynamic>> get _groups =>
+      _firestore.collection('groups');
+
   @override
   Future<Result<List<Group>>> getGroups(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('groups')
-          .where('members', arrayContains: userId)
-          .get();
+      final snapshot =
+      await _groups.where('members', arrayContains: userId).get();
 
       final groups =
       snapshot.docs.map((doc) => doc.toGroup()).nonNulls.toList();
       return Result.ok(groups);
+    } on Exception catch (e) {
+      return Result.error(e);
+    }
+  }
+
+  @override
+  Future<Result<Group>> getGroupById(String groupId) async {
+    try {
+      final doc = await _groups.doc(groupId).get();
+      if (!doc.exists) {
+        return Result.error(Exception('그룹을 찾을 수 없습니다'));
+      }
+
+      final group = doc.toGroup();
+      if (group == null) {
+        return Result.error(Exception('그룹 정보가 올바르지 않습니다'));
+      }
+      return Result.ok(group);
     } on Exception catch (e) {
       return Result.error(e);
     }
@@ -54,7 +73,7 @@ class GroupRepositoryImpl implements GroupRepository {
     }
 
     // 문서 ID를 먼저 만들어 이미지 파일명으로 사용 (그룹 ↔ 이미지 1:1)
-    final docRef = _firestore.collection('groups').doc();
+    final docRef = _groups.doc();
     Reference? uploadedImageRef;
 
     try {
@@ -89,6 +108,53 @@ class GroupRepositoryImpl implements GroupRepository {
           // 정리 실패는 무시 (원래 에러를 반환하는 게 우선)
         }
       }
+      return Result.error(e);
+    }
+  }
+
+  @override
+  Future<Result<void>> leaveGroup({
+    required String groupId,
+    required String userId,
+  }) async {
+    if (!await _networkChecker.isOnline()) {
+      return const Result.error(NetworkUnavailableException());
+    }
+
+    try {
+      final docRef = _groups.doc(groupId);
+      final doc = await docRef.get();
+      final data = doc.data();
+
+      // 이미 없는 그룹이면 성공 처리 (멱등성)
+      if (!doc.exists || data == null) return const Result.ok(null);
+
+      final members = data['members'];
+      final memberIds =
+      members is List ? members.whereType<String>().toList() : <String>[];
+      final remaining = memberIds.where((id) => id != userId);
+
+      if (remaining.isEmpty) {
+        // 마지막 멤버 → 그룹 문서 먼저 삭제, 이미지는 그다음 정리
+        await docRef.delete();
+
+        final imageUrl = data['imageUrl'];
+        if (imageUrl is String && imageUrl.isNotEmpty) {
+          try {
+            await _storage.refFromURL(imageUrl).delete();
+          } on Exception {
+            // 이미지 정리 실패는 결과에 영향 주지 않음
+          }
+        }
+      } else {
+        // 멤버 남아있음 → 배열에서 본인만 제거
+        await docRef.update({
+          'members': FieldValue.arrayRemove([userId]),
+        });
+      }
+
+      return const Result.ok(null);
+    } on Exception catch (e) {
       return Result.error(e);
     }
   }
