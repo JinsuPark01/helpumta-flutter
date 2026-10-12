@@ -24,6 +24,7 @@ Future<void> main() async {
   final firestore = FirebaseFirestore.instance;
   final storage = FirebaseStorage.instance;
   final networkChecker = NetworkChecker();
+  final imageCompressor = ImageCompressor();
 
   final authRepository = AuthRepositoryImpl(
     FirebaseAuth.instance,
@@ -33,12 +34,13 @@ Future<void> main() async {
   final groupRepository = GroupRepositoryImpl(
     firestore,
     storage,
-    ImageCompressor(),
+    imageCompressor,
     networkChecker,
   );
   final recordRepository = RecordRepositoryImpl(
     firestore,
     storage,
+    imageCompressor,
     networkChecker,
   );
 

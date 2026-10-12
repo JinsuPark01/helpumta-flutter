@@ -8,17 +8,20 @@ import '../domain/repository/group_repository.dart';
 import '../domain/repository/record_repository.dart';
 import '../domain/repository/user_repository.dart';
 import '../domain/usecase/create_group_use_case.dart';
+import '../domain/usecase/create_record_use_case.dart';
 import '../domain/usecase/delete_record_use_case.dart';
 import '../domain/usecase/email_login_use_case.dart';
 import '../domain/usecase/get_current_user_id_use_case.dart';
 import '../domain/usecase/get_group_detail_use_case.dart';
 import '../domain/usecase/get_groups_use_case.dart';
+import '../domain/usecase/get_record_by_id_use_case.dart';
 import '../domain/usecase/get_records_by_group_use_case.dart';
 import '../domain/usecase/google_login_use_case.dart';
 import '../domain/usecase/has_wrote_today_use_case.dart';
 import '../domain/usecase/leave_group_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
+import '../domain/usecase/update_record_use_case.dart';
 import '../presentation/common/placeholder_screen.dart';
 import '../presentation/group_create/group_create_bloc.dart';
 import '../presentation/group_create/group_create_screen.dart';
@@ -30,6 +33,9 @@ import '../presentation/home/home_event.dart';
 import '../presentation/home/home_screen.dart';
 import '../presentation/login/login_bloc.dart';
 import '../presentation/login/login_screen.dart';
+import '../presentation/record/record_bloc.dart';
+import '../presentation/record/record_event.dart';
+import '../presentation/record/record_screen.dart';
 import '../presentation/sign_up/sign_up_bloc.dart';
 import '../presentation/sign_up/sign_up_screen.dart';
 
@@ -160,19 +166,24 @@ GoRouter createRouter(AuthRepository authRepository) {
             routes: [
               GoRoute(
                 path: 'record',
-                // 기록 작성·수정 구현 전 임시 화면: 저장 완료 결과(true) 전달 테스트용
                 builder: (context, state) {
+                  final groupId = state.pathParameters['groupId']!;
                   final recordId = state.uri.queryParameters['recordId'];
-                  return Scaffold(
-                    appBar: AppBar(
-                      title: Text(recordId == null ? '기록 작성 (임시)' : '기록 수정 (임시)'),
-                    ),
-                    body: Center(
-                      child: FilledButton(
-                        onPressed: () => context.pop(true),
-                        child: const Text('저장 완료 (임시)'),
-                      ),
-                    ),
+                  final authRepository = context.read<AuthRepository>();
+                  final recordRepository = context.read<RecordRepository>();
+
+                  return BlocProvider(
+                    create: (context) => RecordBloc(
+                      groupId: groupId,
+                      recordId: recordId,
+                      createRecordUseCase:
+                      CreateRecordUseCase(recordRepository, authRepository),
+                      updateRecordUseCase:
+                      UpdateRecordUseCase(recordRepository, authRepository),
+                      getRecordByIdUseCase:
+                      GetRecordByIdUseCase(recordRepository),
+                    )..add(const RecordStarted()),
+                    child: const RecordScreen(),
                   );
                 },
               ),

@@ -226,6 +226,40 @@
 
 ---
 
+## 5. 기록 작성·수정
+
+### 구조
+| 항목 | Native | Flutter |
+|---|---|---|
+| 이미지 상태 | `imageUri: String?` 하나로 표현, Repository에서 `startsWith("http")`로 기존/신규 구분 | `sealed class RecordImage` (없음 / 기존 유지 / 새 사진) + `switch` |
+| 작성·수정 구분 | `recordId` nullable 인자 | 라우트 쿼리 `?recordId=` |
+| 기존 값 채우기 | `OutlinedTextField(value = uiState.x)` | 로딩 후 처음 그릴 때 `TextFormField(initialValue:)` |
+| 운동 시간 입력 제한 | ViewModel에서 숫자 필터 + 상한 초과 무시 | `inputFormatters` (`digitsOnly` + 커스텀 상한 Formatter) |
+| 저장 완료 전달 | `previousBackStackEntry.savedStateHandle["recordCreated"] = true` | `context.pop(true)` |
+| 작성·수정 결과 타입 통일 | `.map { recordId }`로 `Result<String>`에 맞춤 | `Result<Object?>`로 받아 `switch` |
+
+- Compose는 State가 입력값을 제어해서 ViewModel에서 초과 입력을 무시할 수 있었지만, Flutter `TextField`는 자체적으로 값을 보유 → Bloc에서 무시해도 입력창엔 그대로 보임 → 입력 단계(`inputFormatters`)에서 차단
+- `initialValue`는 처음 그릴 때만 반영 → 수정 모드는 기존 기록 로딩이 끝난 뒤에 입력창을 그려야 함
+
+### 도메인 규칙
+| 규칙 | Native | Flutter |
+|---|---|---|
+| 하루 한 번 작성 | FAB 비활성화로만 막음. `hasWroteToday` 조회 실패 시 기본값 `false` → 중복 작성 가능 | `CreateRecordUseCase`에서 저장 직전 재확인 → `AlreadyWroteTodayException` |
+| 당일만 수정 | 수정 버튼 표시 여부로만 막음. 23:59에 열고 00:01에 저장하면 어제 기록 수정됨 | `UpdateRecordUseCase`에서 작성일 확인 → `RecordEditExpiredException` |
+
+- 화면 제어는 UX, 규칙 보장은 Domain. 화면이 실수하거나 조건이 바뀌어도 규칙은 UseCase가 지킴
+
+### 이미지 처리
+| | Native | Flutter |
+|---|---|---|
+| 교체 순서 | 새 업로드 → **기존 삭제** → 문서 업데이트 | 새 업로드 → 문서 업데이트 → **기존 삭제** |
+| 문서 업데이트 실패 시 | 기존 이미지가 이미 지워져 기록 사진이 깨짐 | 새로 올린 이미지만 정리, 기존 기록은 그대로 |
+| 파일명 | 랜덤 UUID | 기록 ID + 업로드 시각 |
+
+- 같은 경로에 덮어쓰면 다운로드 URL이 그대로라 `cached_network_image`가 옛날 사진을 보여줄 수 있어 매번 새 파일명 사용
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
@@ -244,6 +278,12 @@
 - [그룹 상세] 삭제 시 문서 먼저, 이미지 나중 (깨진 기록 방지)
 - [그룹 상세] 삭제·탈퇴에 오프라인 사전 확인 적용
 - [그룹 상세] 그룹 로딩 실패 시 Firebase 원문 대신 고정 한글 문구 표시
+- [기록] 이미지 상태를 sealed class로 구분 (문자열 접두사 판별 제거)
+- [기록] 하루 한 번 작성 규칙을 UseCase에서 재확인
+- [기록] 당일 수정 규칙을 UseCase에서 확인
+- [기록] 이미지 교체 시 문서 업데이트 성공 후 기존 이미지 삭제 (깨진 사진 방지)
+- [기록] 작성 실패 시 업로드한 이미지 정리
+- [기록] 작성·수정에 오프라인 사전 확인 적용, 입력값 trim
 
 ### Native 개선 후보
 - [인증] 위 Flutter 인증 개선 3건 역적용
@@ -251,6 +291,7 @@
 - [홈] 위 Flutter 홈 개선 3건 역적용
 - [그룹 생성] 위 Flutter 그룹 생성 개선 3건 역적용
 - [그룹 상세] 위 Flutter 그룹 상세 개선 6건 역적용 (날짜 연타는 `Job` 취소 또는 `collectLatest`로 대응 가능)
+- [기록] 위 Flutter 기록 개선 6건 역적용 (이미지 상태는 Kotlin sealed interface로 동일하게 표현 가능)
 - [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
 ## 검증 대기
@@ -261,10 +302,9 @@
 - [홈] 이미지 카드 그라데이션 표시
 - [그룹 생성] 이미지 포함 생성 → Storage `groups/{문서ID}.jpg` 생성, 용량 감소 확인
 - [그룹 생성] 세로로 찍은 사진의 EXIF 회전 보정
-
-### 기록 작성 구현 후
-- [그룹 상세] 작성 완료 → 다른 날짜를 보고 있었어도 오늘로 리셋 + 새로고침
-- [그룹 상세] 작성 화면에서 그냥 뒤로가기 → 날짜 유지
+- [기록] 사진 포함 작성 → Storage `records/{groupId}/` 업로드, 카드에 표시
+- [기록] 수정에서 사진 제거 → Storage에서도 삭제
+- [기록] 수정에서 사진 교체 → 새 사진 표시 (캐시로 옛날 사진이 남지 않는지), 기존 파일 삭제
 
 ### 네이티브 동작 확인
 - [그룹 생성] 비행기 모드에서 생성 시 동작 (코드 기준 추론: 이미지 없으면 무한 로딩, 이미지 있으면 최대 10분 후 실패)

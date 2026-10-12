@@ -1,4 +1,5 @@
 import '../../core/result.dart';
+import '../entity/record_image.dart';
 import '../entity/workout_record.dart';
 
 abstract interface class RecordRepository {
@@ -14,6 +15,29 @@ abstract interface class RecordRepository {
     required String groupId,
     required String userId,
     required DateTime since,
+  });
+
+  Future<Result<WorkoutRecord>> getRecordById(String recordId);
+
+  /// 성공 시 생성된 기록 ID 반환
+  Future<Result<String>> createRecord({
+    required String groupId,
+    required String userId,
+    required String userName,
+    required String workoutType,
+    required int workoutDuration,
+    String? imagePath,
+    required String comment,
+  });
+
+  /// 본인 기록만 수정 가능
+  Future<Result<void>> updateRecord({
+    required String recordId,
+    required String currentUserId,
+    required String workoutType,
+    required int workoutDuration,
+    required RecordImage image,
+    required String comment,
   });
 
   /// 본인 기록만 삭제 가능
