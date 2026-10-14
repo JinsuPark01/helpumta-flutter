@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../domain/repository/auth_repository.dart';
+import '../domain/repository/gallery_repository.dart';
 import '../domain/repository/group_repository.dart';
 import '../domain/repository/record_repository.dart';
 import '../domain/repository/user_repository.dart';
@@ -16,12 +17,14 @@ class HelpumtaApp extends StatefulWidget {
     required this.userRepository,
     required this.groupRepository,
     required this.recordRepository,
+    required this.galleryRepository,
   });
 
   final AuthRepository authRepository;
   final UserRepository userRepository;
   final GroupRepository groupRepository;
   final RecordRepository recordRepository;
+  final GalleryRepository galleryRepository;
 
   @override
   State<HelpumtaApp> createState() => _HelpumtaAppState();
@@ -46,6 +49,9 @@ class _HelpumtaAppState extends State<HelpumtaApp> {
         ),
         RepositoryProvider<RecordRepository>.value(
           value: widget.recordRepository,
+        ),
+        RepositoryProvider<GalleryRepository>.value(
+          value: widget.galleryRepository,
         ),
       ],
       child: MaterialApp.router(

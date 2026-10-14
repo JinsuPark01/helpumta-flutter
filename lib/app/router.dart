@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/repository/auth_repository.dart';
+import '../domain/repository/gallery_repository.dart';
 import '../domain/repository/group_repository.dart';
 import '../domain/repository/record_repository.dart';
 import '../domain/repository/user_repository.dart';
@@ -12,6 +13,7 @@ import '../domain/usecase/create_record_use_case.dart';
 import '../domain/usecase/delete_record_use_case.dart';
 import '../domain/usecase/email_login_use_case.dart';
 import '../domain/usecase/get_current_user_id_use_case.dart';
+import '../domain/usecase/get_daily_extract_use_case.dart';
 import '../domain/usecase/get_group_detail_use_case.dart';
 import '../domain/usecase/get_groups_use_case.dart';
 import '../domain/usecase/get_record_by_id_use_case.dart';
@@ -19,10 +21,13 @@ import '../domain/usecase/get_records_by_group_use_case.dart';
 import '../domain/usecase/google_login_use_case.dart';
 import '../domain/usecase/has_wrote_today_use_case.dart';
 import '../domain/usecase/leave_group_use_case.dart';
+import '../domain/usecase/save_image_to_gallery_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
 import '../domain/usecase/update_record_use_case.dart';
-import '../presentation/common/placeholder_screen.dart';
+import '../presentation/extract/extract_bloc.dart';
+import '../presentation/extract/extract_event.dart';
+import '../presentation/extract/extract_screen.dart';
 import '../presentation/group_create/group_create_bloc.dart';
 import '../presentation/group_create/group_create_screen.dart';
 import '../presentation/group_detail/group_detail_bloc.dart';
@@ -48,6 +53,8 @@ abstract final class AppRoutes {
   // 그룹 관련 화면은 /home 하위 → 뒤로가기 시 홈으로 돌아옴
   static const groupCreate = '/home/group/create';
 
+  static final _dateFormat = DateFormat('yyyy-MM-dd');
+
   static String groupDetailPath(String groupId) => '/home/group/$groupId';
 
   static String recordCreatePath(String groupId) =>
@@ -57,7 +64,7 @@ abstract final class AppRoutes {
       '/home/group/$groupId/record?recordId=$recordId';
 
   static String extractPath(String groupId, DateTime date) =>
-      '/home/group/$groupId/extract?date=${DateFormat('yyyy-MM-dd').format(date)}';
+      '/home/group/$groupId/extract?date=${_dateFormat.format(date)}';
 }
 
 GoRouter createRouter(AuthRepository authRepository) {
@@ -190,8 +197,28 @@ GoRouter createRouter(AuthRepository authRepository) {
               GoRoute(
                 path: 'extract',
                 builder: (context, state) {
-                  final date = state.uri.queryParameters['date'] ?? '';
-                  return PlaceholderScreen(title: '사진 추출: $date');
+                  final groupId = state.pathParameters['groupId']!;
+                  // yyyy-MM-dd → 로컬 00:00 (잘못된 값이면 오늘)
+                  final date = DateTime.tryParse(
+                    state.uri.queryParameters['date'] ?? '',
+                  ) ??
+                      DateTime.now();
+
+                  return BlocProvider(
+                    create: (context) => ExtractBloc(
+                      groupId: groupId,
+                      date: date,
+                      getDailyExtractUseCase: GetDailyExtractUseCase(
+                        context.read<GroupRepository>(),
+                        context.read<RecordRepository>(),
+                        context.read<UserRepository>(),
+                      ),
+                      saveImageToGalleryUseCase: SaveImageToGalleryUseCase(
+                        context.read<GalleryRepository>(),
+                      ),
+                    )..add(const ExtractStarted()),
+                    child: const ExtractScreen(),
+                  );
                 },
               ),
             ],

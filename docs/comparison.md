@@ -260,6 +260,36 @@
 
 ---
 
+## 6. 사진 추출
+
+### 구조
+| 항목 | Native | Flutter |
+|---|---|---|
+| 캡처 방식 | `rememberGraphicsLayer()` + `drawWithContent { record }` | `RepaintBoundary` + `GlobalKey` |
+| 캡처 결과 | `graphicsLayer.toImageBitmap()` → `android.graphics.Bitmap` | `boundary.toImage(pixelRatio:)` → `Uint8List`(PNG) |
+| 출력 해상도 | 화면에 보이는 크기 그대로 (기기마다 다름, 예: 918×1632) | `pixelRatio = 1080 ÷ 화면상 폭` → 항상 1080×1920 |
+| 시스템 글자 크기 | sp 단위라 영향 받음 → 카드 레이아웃 변동 | `MediaQuery.withNoTextScaling`으로 카드 안에서만 무시 |
+| 이미지 로딩 대기 | Coil `onSuccess`/`onError` 콜백으로 개수 카운트 | 그리기 전에 `precacheImage` + `Future.wait` |
+| 캡처 시 이미지 위젯 | `AsyncImage` | 페이드인 없는 `Image` (애니메이션 중 캡처 방지) |
+| 갤러리 저장 | `ImageSaver`: MediaStore, `IS_PENDING`, 권한 런처, Android 버전 분기 | `gal` 패키지 `putImageBytes(album:)` 한 줄 |
+| 저장 포맷 | JPEG 95% | PNG (무손실, 용량 큼) |
+| 레이아웃 계산 | `BoxWithConstraints` | `LayoutBuilder` |
+
+- 네이티브는 Contract에 Android `Bitmap` 타입이 들어가지만, Flutter는 순수 바이트라 Event에 플랫폼 타입이 없음
+- `ClipRRect` 안쪽에 `RepaintBoundary`를 둬서 화면은 둥근 카드, 저장 이미지는 사각형 (바깥에 두면 모서리가 투명하게 잘림)
+
+### 레이어 구조
+| | Native | Flutter |
+|---|---|---|
+| 갤러리 저장 의존 | ViewModel이 `data/util/ImageSaver` 직접 주입 (UI → Data) | `GalleryRepository`(Domain 인터페이스) + `SaveImageToGalleryUseCase` |
+| 저장 권한 거부 | 화면에서 권한 런처 결과로 판단 | Data에서 `GalleryAccessDeniedException`으로 변환 → Bloc이 문구 선택 |
+
+### Dart 문법 주의
+- switch **표현식** 안에서는 `return`을 쓸 수 없음 → 실패 시 바로 반환하려면 switch **문** + `final` 지연 초기화 사용
+- Kotlin `getOrElse { return Result.failure(it) }` 한 줄이 Dart에선 switch 문 몇 줄로 늘어남
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
@@ -284,6 +314,10 @@
 - [기록] 이미지 교체 시 문서 업데이트 성공 후 기존 이미지 삭제 (깨진 사진 방지)
 - [기록] 작성 실패 시 업로드한 이미지 정리
 - [기록] 작성·수정에 오프라인 사전 확인 적용, 입력값 trim
+- [추출] 저장 이미지 해상도를 1080×1920으로 고정 (기기와 무관)
+- [추출] 시스템 글자 크기와 무관하게 카드 레이아웃 고정
+- [추출] 갤러리 저장을 Repository + UseCase로 분리 (UI → Data 의존 제거)
+- [추출] 미기록 멤버 닉네임 조회를 병렬로 실행, 닉네임 말줄임 처리
 
 ### Native 개선 후보
 - [인증] 위 Flutter 인증 개선 3건 역적용
@@ -292,6 +326,7 @@
 - [그룹 생성] 위 Flutter 그룹 생성 개선 3건 역적용
 - [그룹 상세] 위 Flutter 그룹 상세 개선 6건 역적용 (날짜 연타는 `Job` 취소 또는 `collectLatest`로 대응 가능)
 - [기록] 위 Flutter 기록 개선 6건 역적용 (이미지 상태는 Kotlin sealed interface로 동일하게 표현 가능)
+- [추출] 위 Flutter 추출 개선 4건 역적용 (해상도 고정은 캡처한 Bitmap을 `createScaledBitmap`으로 리사이즈하거나 고정 크기 레이어에 그리는 방식으로 가능)
 - [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
 ## 검증 대기
@@ -305,6 +340,7 @@
 - [기록] 사진 포함 작성 → Storage `records/{groupId}/` 업로드, 카드에 표시
 - [기록] 수정에서 사진 제거 → Storage에서도 삭제
 - [기록] 수정에서 사진 교체 → 새 사진 표시 (캐시로 옛날 사진이 남지 않는지), 기존 파일 삭제
+- [추출] 사진 포함 기록 추출 → 로딩 중 FAB 스피너, 저장 이미지에 사진이 선명하게 들어가는지
 
 ### 네이티브 동작 확인
 - [그룹 생성] 비행기 모드에서 생성 시 동작 (코드 기준 추론: 이미지 없으면 무한 로딩, 이미지 있으면 최대 10분 후 실패)

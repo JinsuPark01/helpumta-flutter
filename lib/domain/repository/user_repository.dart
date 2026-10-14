@@ -7,4 +7,7 @@ abstract interface class UserRepository {
     required String nickname,
     required String email,
   });
+
+  /// uid 목록 → uid:nickname 맵 (닉네임이 없는 uid는 결과에서 빠짐)
+  Future<Result<Map<String, String>>> getNicknames(List<String> uids);
 }

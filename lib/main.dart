@@ -8,6 +8,7 @@ import 'app/app.dart';
 import 'data/auth/google_auth_client.dart';
 import 'data/network/network_checker.dart';
 import 'data/repository/auth_repository_impl.dart';
+import 'data/repository/gallery_repository_impl.dart';
 import 'data/repository/group_repository_impl.dart';
 import 'data/repository/record_repository_impl.dart';
 import 'data/repository/user_repository_impl.dart';
@@ -43,6 +44,7 @@ Future<void> main() async {
     imageCompressor,
     networkChecker,
   );
+  final galleryRepository = GalleryRepositoryImpl();
 
   runApp(
     HelpumtaApp(
@@ -50,6 +52,7 @@ Future<void> main() async {
       userRepository: userRepository,
       groupRepository: groupRepository,
       recordRepository: recordRepository,
+      galleryRepository: galleryRepository,
     ),
   );
 }

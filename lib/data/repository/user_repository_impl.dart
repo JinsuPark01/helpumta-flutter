@@ -8,6 +8,9 @@ class UserRepositoryImpl implements UserRepository {
 
   final FirebaseFirestore _firestore;
 
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
+
   @override
   Future<Result<void>> saveUser({
     required String uid,
@@ -15,7 +18,7 @@ class UserRepositoryImpl implements UserRepository {
     required String email,
   }) async {
     try {
-      final docRef = _firestore.collection('users').doc(uid);
+      final docRef = _users.doc(uid);
       final snapshot = await docRef.get();
 
       if (snapshot.exists) {
@@ -33,6 +36,25 @@ class UserRepositoryImpl implements UserRepository {
         });
       }
       return const Result.ok(null);
+    } on Exception catch (e) {
+      return Result.error(e);
+    }
+  }
+
+  @override
+  Future<Result<Map<String, String>>> getNicknames(List<String> uids) async {
+    if (uids.isEmpty) return const Result.ok({});
+
+    try {
+      // 그룹 정원이 작아서(최대 4명) 문서별 조회를 병렬로 실행
+      final docs = await Future.wait(uids.map((uid) => _users.doc(uid).get()));
+
+      final nicknames = <String, String>{};
+      for (final doc in docs) {
+        final nickname = doc.data()?['nickname'];
+        if (nickname is String) nicknames[doc.id] = nickname;
+      }
+      return Result.ok(nicknames);
     } on Exception catch (e) {
       return Result.error(e);
     }

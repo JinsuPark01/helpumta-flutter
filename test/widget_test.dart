@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:helpumta_flutter/app/app.dart';
 import 'package:helpumta_flutter/domain/repository/auth_repository.dart';
+import 'package:helpumta_flutter/domain/repository/gallery_repository.dart';
 import 'package:helpumta_flutter/domain/repository/group_repository.dart';
 import 'package:helpumta_flutter/domain/repository/record_repository.dart';
 import 'package:helpumta_flutter/domain/repository/user_repository.dart';
@@ -18,6 +19,8 @@ class FakeGroupRepository extends Fake implements GroupRepository {}
 
 class FakeRecordRepository extends Fake implements RecordRepository {}
 
+class FakeGalleryRepository extends Fake implements GalleryRepository {}
+
 void main() {
   testWidgets('로그아웃 상태로 시작하면 로그인 화면으로 이동한다', (tester) async {
     await tester.pumpWidget(
@@ -26,6 +29,7 @@ void main() {
         userRepository: FakeUserRepository(),
         groupRepository: FakeGroupRepository(),
         recordRepository: FakeRecordRepository(),
+        galleryRepository: FakeGalleryRepository(),
       ),
     );
     await tester.pumpAndSettle();

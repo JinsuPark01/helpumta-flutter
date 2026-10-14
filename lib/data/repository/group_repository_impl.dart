@@ -60,6 +60,24 @@ class GroupRepositoryImpl implements GroupRepository {
   }
 
   @override
+  Future<Result<List<String>>> getMemberIds(String groupId) async {
+    try {
+      final doc = await _groups.doc(groupId).get();
+      final data = doc.data();
+      if (!doc.exists || data == null) {
+        return Result.error(Exception('그룹을 찾을 수 없습니다'));
+      }
+
+      final members = data['members'];
+      return Result.ok(
+        members is List ? members.whereType<String>().toList() : const [],
+      );
+    } on Exception catch (e) {
+      return Result.error(e);
+    }
+  }
+
+  @override
   Future<Result<String>> createGroup({
     required String userId,
     required String name,
