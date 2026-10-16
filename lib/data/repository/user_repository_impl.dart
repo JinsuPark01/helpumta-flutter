@@ -1,12 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/result.dart';
+import '../../domain/entity/network_exception.dart';
 import '../../domain/repository/user_repository.dart';
+import '../network/network_checker.dart';
 
 class UserRepositoryImpl implements UserRepository {
-  UserRepositoryImpl(this._firestore);
+  UserRepositoryImpl(this._firestore, this._networkChecker);
 
   final FirebaseFirestore _firestore;
+  final NetworkChecker _networkChecker;
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
@@ -55,6 +58,20 @@ class UserRepositoryImpl implements UserRepository {
         if (nickname is String) nicknames[doc.id] = nickname;
       }
       return Result.ok(nicknames);
+    } on Exception catch (e) {
+      return Result.error(e);
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteUser(String uid) async {
+    if (!await _networkChecker.isOnline()) {
+      return const Result.error(NetworkUnavailableException());
+    }
+
+    try {
+      await _users.doc(uid).delete();
+      return const Result.ok(null);
     } on Exception catch (e) {
       return Result.error(e);
     }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'data/auth/google_auth_client.dart';
@@ -11,6 +12,7 @@ import 'data/repository/auth_repository_impl.dart';
 import 'data/repository/gallery_repository_impl.dart';
 import 'data/repository/group_repository_impl.dart';
 import 'data/repository/record_repository_impl.dart';
+import 'data/repository/settings_repository_impl.dart';
 import 'data/repository/user_repository_impl.dart';
 import 'data/util/image_compressor.dart';
 import 'firebase_options.dart';
@@ -31,7 +33,7 @@ Future<void> main() async {
     FirebaseAuth.instance,
     GoogleAuthClient(),
   );
-  final userRepository = UserRepositoryImpl(firestore);
+  final userRepository = UserRepositoryImpl(firestore, networkChecker);
   final groupRepository = GroupRepositoryImpl(
     firestore,
     storage,
@@ -45,6 +47,7 @@ Future<void> main() async {
     networkChecker,
   );
   final galleryRepository = GalleryRepositoryImpl();
+  final settingsRepository = SettingsRepositoryImpl(SharedPreferencesAsync());
 
   runApp(
     HelpumtaApp(
@@ -53,6 +56,7 @@ Future<void> main() async {
       groupRepository: groupRepository,
       recordRepository: recordRepository,
       galleryRepository: galleryRepository,
+      settingsRepository: settingsRepository,
     ),
   );
 }

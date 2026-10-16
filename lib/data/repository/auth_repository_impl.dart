@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 import '../../core/result.dart';
 import '../../domain/entity/auth_error.dart';
+import '../../domain/entity/auth_provider.dart';
 import '../../domain/entity/user.dart';
 import '../../domain/repository/auth_repository.dart';
 import '../auth/google_auth_client.dart';
@@ -101,6 +102,73 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   String? getCurrentUserEmail() => _firebaseAuth.currentUser?.email;
+
+  @override
+  AuthProvider getAuthProvider() {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return AuthProvider.unknown;
+
+    final providerIds = user.providerData.map((info) => info.providerId);
+    if (providerIds.contains('google.com')) return AuthProvider.google;
+    if (providerIds.contains('password')) return AuthProvider.email;
+    return AuthProvider.unknown;
+  }
+
+  @override
+  Future<Result<void>> reauthenticateWithPassword(String password) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return Result.error(Exception('로그인 상태가 아닙니다'));
+    final email = user.email;
+    if (email == null) return Result.error(Exception('이메일 정보를 가져올 수 없습니다'));
+
+    try {
+      final credential = fb.EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+      return const Result.ok(null);
+    } on Exception catch (e) {
+      return Result.error(AuthException(e.toAuthError()));
+    }
+  }
+
+  @override
+  Future<Result<void>> reauthenticateWithGoogle() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return Result.error(Exception('로그인 상태가 아닙니다'));
+
+    // 로그인과 동일하게 토큰 획득도 Data 레이어 안에서 처리 (Activity 불필요)
+    final tokenResult = await _googleAuthClient.getIdToken();
+
+    switch (tokenResult) {
+      case Error(:final error):
+        return Result.error(error);
+      case Ok(value: final idToken):
+        try {
+          final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
+          await user.reauthenticateWithCredential(credential);
+          return const Result.ok(null);
+        } on Exception catch (e) {
+          return Result.error(AuthException(e.toAuthError()));
+        }
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteAccount() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return Result.error(Exception('로그인 상태가 아닙니다'));
+
+    try {
+      await user.delete();
+      // 다음 로그인 때 이전 구글 계정이 자동 선택되지 않도록 세션 정리
+      await _googleAuthClient.signOut();
+      return const Result.ok(null);
+    } on Exception catch (e) {
+      return Result.error(AuthException(e.toAuthError()));
+    }
+  }
 
   @override
   Future<void> logout() async {

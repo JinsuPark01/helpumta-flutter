@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,24 +6,31 @@ import '../domain/repository/auth_repository.dart';
 import '../domain/repository/gallery_repository.dart';
 import '../domain/repository/group_repository.dart';
 import '../domain/repository/record_repository.dart';
+import '../domain/repository/settings_repository.dart';
 import '../domain/repository/user_repository.dart';
 import '../domain/usecase/create_group_use_case.dart';
 import '../domain/usecase/create_record_use_case.dart';
+import '../domain/usecase/delete_account_use_case.dart';
 import '../domain/usecase/delete_record_use_case.dart';
 import '../domain/usecase/email_login_use_case.dart';
+import '../domain/usecase/get_auth_provider_use_case.dart';
 import '../domain/usecase/get_current_user_id_use_case.dart';
 import '../domain/usecase/get_daily_extract_use_case.dart';
 import '../domain/usecase/get_group_detail_use_case.dart';
 import '../domain/usecase/get_groups_use_case.dart';
 import '../domain/usecase/get_record_by_id_use_case.dart';
 import '../domain/usecase/get_records_by_group_use_case.dart';
+import '../domain/usecase/get_user_profile_use_case.dart';
 import '../domain/usecase/google_login_use_case.dart';
 import '../domain/usecase/has_wrote_today_use_case.dart';
 import '../domain/usecase/leave_group_use_case.dart';
+import '../domain/usecase/logout_use_case.dart';
 import '../domain/usecase/save_image_to_gallery_use_case.dart';
 import '../domain/usecase/save_user_use_case.dart';
+import '../domain/usecase/set_home_layout_use_case.dart';
 import '../domain/usecase/sign_up_use_case.dart';
 import '../domain/usecase/update_record_use_case.dart';
+import '../domain/usecase/watch_home_layout_use_case.dart';
 import '../presentation/extract/extract_bloc.dart';
 import '../presentation/extract/extract_event.dart';
 import '../presentation/extract/extract_screen.dart';
@@ -38,6 +44,9 @@ import '../presentation/home/home_event.dart';
 import '../presentation/home/home_screen.dart';
 import '../presentation/login/login_bloc.dart';
 import '../presentation/login/login_screen.dart';
+import '../presentation/my_page/my_page_bloc.dart';
+import '../presentation/my_page/my_page_event.dart';
+import '../presentation/my_page/my_page_screen.dart';
 import '../presentation/record/record_bloc.dart';
 import '../presentation/record/record_event.dart';
 import '../presentation/record/record_screen.dart';
@@ -118,13 +127,18 @@ GoRouter createRouter(AuthRepository authRepository) {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => BlocProvider(
-          // 생성 직후 첫 로딩 (네이티브 ViewModel init 블록 역할)
+          // 배치 설정 구독 + 첫 로딩 (네이티브 ViewModel init 블록 역할)
           create: (context) => HomeBloc(
             getGroupsUseCase: GetGroupsUseCase(
               context.read<GroupRepository>(),
               context.read<AuthRepository>(),
             ),
-          )..add(const HomeGroupsRequested()),
+            watchHomeLayoutUseCase: WatchHomeLayoutUseCase(
+              context.read<SettingsRepository>(),
+            ),
+          )
+            ..add(const HomeLayoutSubscriptionRequested())
+            ..add(const HomeGroupsRequested()),
           child: const HomeScreen(),
         ),
         routes: [
@@ -227,19 +241,36 @@ GoRouter createRouter(AuthRepository authRepository) {
       ),
       GoRoute(
         path: AppRoutes.myPage,
-        // 마이페이지 구현 전까지 로그아웃만 되는 임시 화면
-        builder: (context, state) => Scaffold(
-          appBar: AppBar(title: const Text('마이페이지')),
-          body: Center(
-            child: FilledButton(
-              onPressed: () async {
-                await context.read<AuthRepository>().logout();
-                if (context.mounted) context.go(AppRoutes.login);
-              },
-              child: const Text('로그아웃'),
-            ),
-          ),
-        ),
+        builder: (context, state) {
+          final authRepository = context.read<AuthRepository>();
+          final groupRepository = context.read<GroupRepository>();
+          final recordRepository = context.read<RecordRepository>();
+          final settingsRepository = context.read<SettingsRepository>();
+
+          return BlocProvider(
+            create: (context) => MyPageBloc(
+              getUserProfileUseCase: GetUserProfileUseCase(authRepository),
+              getAuthProviderUseCase: GetAuthProviderUseCase(authRepository),
+              logoutUseCase: LogoutUseCase(authRepository),
+              deleteAccountUseCase: DeleteAccountUseCase(
+                authRepository,
+                groupRepository,
+                LeaveGroupUseCase(
+                  authRepository,
+                  groupRepository,
+                  recordRepository,
+                ),
+                context.read<UserRepository>(),
+              ),
+              watchHomeLayoutUseCase:
+              WatchHomeLayoutUseCase(settingsRepository),
+              setHomeLayoutUseCase: SetHomeLayoutUseCase(settingsRepository),
+            )
+              ..add(const MyPageStarted())
+              ..add(const MyPageLayoutSubscriptionRequested()),
+            child: const MyPageScreen(),
+          );
+        },
       ),
     ],
   );

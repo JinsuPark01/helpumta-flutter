@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
 import '../../domain/entity/group_policy.dart';
+import '../../domain/entity/home_layout.dart';
 import 'home_bloc.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 import 'widgets/group_card.dart';
+import 'widgets/group_list_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -67,12 +69,18 @@ class _HomeContent extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // 목록이 있으면 새로고침 중이어도 그리드 유지
+    // 목록이 있으면 새로고침 중이어도 목록 유지
     final body = switch (state) {
-      HomeState(groups: [_, ...]) => _GroupGrid(
-        state: state,
-        onGroupClick: onGroupClick,
-      ),
+      HomeState(groups: [_, ...]) => switch (state.homeLayout) {
+        HomeLayout.grid => _GroupGrid(
+          state: state,
+          onGroupClick: onGroupClick,
+        ),
+        HomeLayout.list => _GroupList(
+          state: state,
+          onGroupClick: onGroupClick,
+        ),
+      },
       HomeState(status: HomeStatus.failure) => Center(
         child: Text(
           state.errorMessage ?? '그룹을 불러올 수 없습니다',
@@ -128,6 +136,30 @@ class _GroupGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final group = state.groups[index];
         return GroupCard(
+          key: ValueKey(group.id),
+          group: group,
+          onTap: () => onGroupClick(group.id),
+        );
+      },
+    );
+  }
+}
+
+class _GroupList extends StatelessWidget {
+  const _GroupList({required this.state, required this.onGroupClick});
+
+  final HomeState state;
+  final ValueChanged<String> onGroupClick;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: state.groups.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final group = state.groups[index];
+        return GroupListCard(
           key: ValueKey(group.id),
           group: group,
           onTap: () => onGroupClick(group.id),

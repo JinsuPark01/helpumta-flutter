@@ -290,6 +290,48 @@
 
 ---
 
+## 7. 마이페이지 · 홈 배치 설정
+
+### 설정 저장과 구독
+| 항목 | Native | Flutter |
+|---|---|---|
+| 저장소 | Preferences DataStore | `shared_preferences` (`SharedPreferencesAsync`) |
+| 변경 구독 | DataStore가 `Flow` 제공 → 마이페이지에서 바꾸면 홈 자동 반영 | 변경 알림 없음 → Repository가 "현재 값 + 이후 변경"을 내보내는 Stream을 직접 구성 |
+| Stream 생성 | `flow { }` / `dataStore.data.map { }` | `async*` + `yield` / `yield*` + `StreamController.broadcast()` |
+| ViewModel/Bloc 구독 | `viewModelScope.launch { flow.collect { } }` | `emit.forEach(stream, onData:)` (Bloc이 닫히면 자동 해제) |
+| 잘못된 저장값 | `runCatching { valueOf() }.getOrDefault(GRID)` | `values.asNameMap()[saved] ?? grid` |
+
+- Flutter 방식의 한계: 이 Repository를 거친 변경만 알림. 설정을 바꾸는 곳이 마이페이지 하나라 충분
+
+### 계정 삭제
+| 항목 | Native | Flutter |
+|---|---|---|
+| 흐름 조립 | ViewModel이 "재인증 → 삭제" 순서 조립 | `DeleteAccountUseCase`가 재인증부터 Auth 삭제까지 전부 처리 |
+| 재인증 방법 전달 | `DeleteWithGoogle(activity)` / `DeleteWithPassword(password)` Intent | `ReauthMethod` sealed class (`PasswordReauth` / `GoogleReauth`) |
+| Google 재인증 토큰 | ViewModel이 `GoogleAuthClient`에 Activity 넘겨 직접 획득 (UI → Data) | `AuthRepositoryImpl.reauthenticateWithGoogle()` 내부에서 획득 |
+| 그룹별 탈퇴 | UseCase 안에서 기록 삭제 + `leaveGroup` 반복 | 기존 `LeaveGroupUseCase` 재사용 |
+| 비밀번호 입력 다이얼로그 | `showPasswordDialog` 상태 + 내부 `remember` | `showDialog<String>()`이 입력값을 Future로 반환 |
+
+- 순서는 양쪽 동일: 본인 확인 → 그룹 탈퇴(내 기록 삭제 포함) → users 문서 삭제 → Auth 계정 삭제
+- 본인 확인을 데이터 삭제 **전에** 먼저 하는 설계는 네이티브부터 잘 되어 있던 부분
+
+### 에러 구분
+| 상황 | Native | Flutter |
+|---|---|---|
+| 비밀번호 틀림 | "비밀번호를 확인해주세요" | 동일 |
+| 오프라인에서 재인증 실패 | "비밀번호를 확인해주세요" (원인과 다른 안내) | 재인증 실패를 `ReauthenticationFailedException(cause)`로 감싸 원인 확인 → "네트워크 연결을 확인해주세요" |
+| Google 계정 선택 취소 | "구글 인증에 실패했어요" | 문구 없이 원래 상태로 |
+
+### 플랫폼 기능 대체
+- 링크 열기: `Intent.ACTION_VIEW` → `url_launcher`
+- 버전 표시: `BuildConfig.VERSION_NAME` → `package_info_plus` (`pubspec.yaml`의 `version`)
+- 세그먼트 버튼: `SingleChoiceSegmentedButtonRow` → `SegmentedButton<T>` (선택값을 `Set`으로 다룸)
+
+### Dart 문법
+- `if (result case Error(:final error))` → 실패만 골라서 바로 반환할 때 switch 문보다 간결 (Kotlin `getOrElse { return }` 대응)
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
@@ -318,6 +360,11 @@
 - [추출] 시스템 글자 크기와 무관하게 카드 레이아웃 고정
 - [추출] 갤러리 저장을 Repository + UseCase로 분리 (UI → Data 의존 제거)
 - [추출] 미기록 멤버 닉네임 조회를 병렬로 실행, 닉네임 말줄임 처리
+- [마이페이지] 계정 삭제 흐름을 ViewModel → UseCase로 이동, 그룹 탈퇴는 기존 UseCase 재사용
+- [마이페이지] Google 재인증 토큰 획득을 Data 레이어로 이동 (Activity 전달·UI → Data 의존 제거)
+- [마이페이지] 재인증 실패 원인 구분 (오프라인을 비밀번호 오류로 안내하지 않음), Google 계정 선택 취소 시 문구 없음
+- [마이페이지] users 문서 삭제에 오프라인 사전 확인 적용 (가입 그룹이 없을 때 무한 대기 방지)
+- [마이페이지] 계정 삭제 후 Google 세션 정리
 
 ### Native 개선 후보
 - [인증] 위 Flutter 인증 개선 3건 역적용
@@ -327,6 +374,7 @@
 - [그룹 상세] 위 Flutter 그룹 상세 개선 6건 역적용 (날짜 연타는 `Job` 취소 또는 `collectLatest`로 대응 가능)
 - [기록] 위 Flutter 기록 개선 6건 역적용 (이미지 상태는 Kotlin sealed interface로 동일하게 표현 가능)
 - [추출] 위 Flutter 추출 개선 4건 역적용 (해상도 고정은 캡처한 Bitmap을 `createScaledBitmap`으로 리사이즈하거나 고정 크기 레이어에 그리는 방식으로 가능)
+- [마이페이지] 위 Flutter 마이페이지 개선 5건 역적용 (Google 재인증은 Credential Manager의 Activity 요구 때문에 UI에서 토큰을 받아 넘기는 구조는 유지하되, 흐름 조립은 UseCase로 이동 가능)
 - [전체] 로직 없는 단순 이동(Intent → SideEffect 경유)을 UI 콜백에서 직접 처리하는 방식 검토
 
 ## 검증 대기
@@ -334,13 +382,14 @@
 ### 실기기
 - [인증] 회원가입 완료 SnackBar 표시
 - [인증] Google 로그인 전체 흐름 (계정 선택 → 홈, 취소 시 문구 없음, 로그아웃 후 재로그인)
-- [홈] 이미지 카드 그라데이션 표시
+- [홈] 이미지 카드 그라데이션 표시, 목록형 카드 썸네일
 - [그룹 생성] 이미지 포함 생성 → Storage `groups/{문서ID}.jpg` 생성, 용량 감소 확인
 - [그룹 생성] 세로로 찍은 사진의 EXIF 회전 보정
 - [기록] 사진 포함 작성 → Storage `records/{groupId}/` 업로드, 카드에 표시
 - [기록] 수정에서 사진 제거 → Storage에서도 삭제
 - [기록] 수정에서 사진 교체 → 새 사진 표시 (캐시로 옛날 사진이 남지 않는지), 기존 파일 삭제
 - [추출] 사진 포함 기록 추출 → 로딩 중 FAB 스피너, 저장 이미지에 사진이 선명하게 들어가는지
+- [마이페이지] Google 계정 삭제 (계정 선택 → 재인증 → 삭제, 선택 취소 시 문구 없음)
 
 ### 네이티브 동작 확인
 - [그룹 생성] 비행기 모드에서 생성 시 동작 (코드 기준 추론: 이미지 없으면 무한 로딩, 이미지 있으면 최대 10분 후 실패)

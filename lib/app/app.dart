@@ -7,6 +7,7 @@ import '../domain/repository/auth_repository.dart';
 import '../domain/repository/gallery_repository.dart';
 import '../domain/repository/group_repository.dart';
 import '../domain/repository/record_repository.dart';
+import '../domain/repository/settings_repository.dart';
 import '../domain/repository/user_repository.dart';
 import 'router.dart';
 
@@ -18,6 +19,7 @@ class HelpumtaApp extends StatefulWidget {
     required this.groupRepository,
     required this.recordRepository,
     required this.galleryRepository,
+    required this.settingsRepository,
   });
 
   final AuthRepository authRepository;
@@ -25,6 +27,7 @@ class HelpumtaApp extends StatefulWidget {
   final GroupRepository groupRepository;
   final RecordRepository recordRepository;
   final GalleryRepository galleryRepository;
+  final SettingsRepository settingsRepository;
 
   @override
   State<HelpumtaApp> createState() => _HelpumtaAppState();
@@ -52,6 +55,9 @@ class _HelpumtaAppState extends State<HelpumtaApp> {
         ),
         RepositoryProvider<GalleryRepository>.value(
           value: widget.galleryRepository,
+        ),
+        RepositoryProvider<SettingsRepository>.value(
+          value: widget.settingsRepository,
         ),
       ],
       child: MaterialApp.router(
