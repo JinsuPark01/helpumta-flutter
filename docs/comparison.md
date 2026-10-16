@@ -332,6 +332,34 @@
 
 ---
 
+## 8. iOS 빌드 · CI
+
+### iOS 설정 (Info.plist)
+| 항목 | Android | iOS |
+|---|---|---|
+| 설정 파일 | `AndroidManifest.xml` | `Info.plist` |
+| 사진 권한 | `uses-permission` 선언, 팝업 문구는 시스템 기본 | `NSPhotoLibraryUsageDescription` 등에 **이유 문구 직접 작성**. 없으면 접근 순간 앱 강제 종료 |
+| Google 로그인 | `google-services.json` + SHA-1 등록으로 플러그인이 처리 | `GIDClientID` + `CFBundleURLTypes`(계정 선택 후 앱으로 돌아오는 URL scheme) 직접 등록 |
+
+- 권한 문구·URL scheme 누락은 **빌드는 통과하고 실행 시점에 터지는** 문제라 CI로 잡을 수 없음 → 공식 문서 기준으로 선반영
+
+### CI (GitHub Actions)
+| 단계 | 러너 | 내용 |
+|---|---|---|
+| Flutter 테스트 | ubuntu | `flutter test` |
+| iOS 빌드 검증 | macOS | 테스트 통과 시 `flutter build ios --no-codesign` |
+
+- Flutter 버전을 로컬과 동일하게 고정해 환경 차이로 인한 실패 방지
+- 퍼블릭 레포라 macOS 러너 무료 사용
+- 서명 없는 빌드라 실기기 설치는 불가. 실기기 검증은 Apple Developer Program 가입 후 TestFlight 경로 필요
+
+### 맥 없이 iOS 개발할 때의 한계
+- Xcode가 macOS 전용이라 Windows에선 iOS 빌드·서명 불가
+- 아이폰이 있어도 맥이나 유료 개발자 계정 없이는 설치 불가 (무료 서명은 맥에 기기를 연결한 Xcode 설치만 지원)
+- "크로스플랫폼"이어도 iOS 쪽은 플랫폼 설정과 빌드 환경이 별도로 필요함
+
+---
+
 ## 개선 기록
 
 ### Flutter에서 개선해서 구현한 것
@@ -390,6 +418,11 @@
 - [기록] 수정에서 사진 교체 → 새 사진 표시 (캐시로 옛날 사진이 남지 않는지), 기존 파일 삭제
 - [추출] 사진 포함 기록 추출 → 로딩 중 FAB 스피너, 저장 이미지에 사진이 선명하게 들어가는지
 - [마이페이지] Google 계정 삭제 (계정 선택 → 재인증 → 삭제, 선택 취소 시 문구 없음)
+
+### iOS (TestFlight 진행 시)
+- 사진 선택·저장 권한 팝업 문구 표시, 거부 시 처리
+- Google 로그인 후 앱으로 정상 복귀
+- 추출 이미지 앨범 저장
 
 ### 네이티브 동작 확인
 - [그룹 생성] 비행기 모드에서 생성 시 동작 (코드 기준 추론: 이미지 없으면 무한 로딩, 이미지 있으면 최대 10분 후 실패)

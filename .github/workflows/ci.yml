@@ -10,7 +10,7 @@ jobs:
     name: Flutter 테스트
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: subosito/flutter-action@v2
         with:
@@ -27,7 +27,7 @@ jobs:
     runs-on: macos-latest
     needs: test   # 테스트가 통과해야 빌드 진행
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: subosito/flutter-action@v2
         with:

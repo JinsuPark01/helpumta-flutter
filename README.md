@@ -1,5 +1,7 @@
 # 헬품타 Flutter
 
+[![CI](https://github.com/JinsuPark01/helpumta-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/JinsuPark01/helpumta-flutter/actions/workflows/ci.yml)
+
 > 친구들과 그룹을 만들어 하루 한 번 운동을 인증하는 습관 공유 앱
 > **네이티브 Android(Compose)로 출시한 [헬품타](https://github.com/JinsuPark01/WhatDoingApp)를 Flutter로 다시 구현한 프로젝트**
 
@@ -100,4 +102,4 @@ flutter run
 
 - Firebase 설정 파일(`firebase_options.dart`, `google-services.json`)이 포함되어 있어 별도 설정 없이 실행됩니다
 - Google 로그인은 등록된 디버그 서명(SHA-1)에서만 동작합니다
-- iOS는 빌드 검증까지만 진행했습니다 (실기기 미검증)
+- iOS는 GitHub Actions에서 서명 없이 빌드 검증까지 진행했습니다 (실기기 미검증)
