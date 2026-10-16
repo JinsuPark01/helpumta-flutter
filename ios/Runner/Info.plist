@@ -66,5 +66,25 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+		<!-- 사진 선택 (image_picker) / 갤러리 앨범 저장 (gal) -->
+    	<key>NSPhotoLibraryUsageDescription</key>
+    	<string>운동 인증샷과 그룹 대표 이미지를 선택하고, 추출한 사진을 앨범에 저장하기 위해 사진 접근이 필요해요.</string>
+    	<key>NSPhotoLibraryAddUsageDescription</key>
+    	<string>추출한 운동 기록 사진을 앨범에 저장하기 위해 필요해요.</string>
+
+    	<!-- Google 로그인 (google_sign_in) -->
+    	<key>GIDClientID</key>
+    	<string>312771188756-188nito968l6eh08942l13g0mtkocd7d.apps.googleusercontent.com</string>
+    	<key>CFBundleURLTypes</key>
+    	<array>
+    		<dict>
+    			<key>CFBundleTypeRole</key>
+    			<string>Editor</string>
+    			<key>CFBundleURLSchemes</key>
+    			<array>
+    				<string>com.googleusercontent.apps.312771188756-188nito968l6eh08942l13g0mtkocd7d</string>
+    			</array>
+    		</dict>
+    	</array>
 </dict>
 </plist>
