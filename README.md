@@ -102,4 +102,5 @@ flutter run
 
 - Firebase 설정 파일(`firebase_options.dart`, `google-services.json`)이 포함되어 있어 별도 설정 없이 실행됩니다
 - Google 로그인은 등록된 디버그 서명(SHA-1)에서만 동작합니다
+- Android는 실기기에서 전체 기능을 검증했습니다
 - iOS는 GitHub Actions에서 서명 없이 빌드 검증까지 진행했습니다 (실기기 미검증)
