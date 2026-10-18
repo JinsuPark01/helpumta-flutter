@@ -60,6 +60,18 @@ lib/
 └── app/             # 라우터, 의존성 조립
 ```
 
+## 테스트
+
+| 대상 | 검증 내용 |
+|---|---|
+| `LoginBloc` | 실패 시 상태 전이, 같은 실패 연속 시 매번 `loading → failure`, Google 취소 시 문구 없이 복귀 |
+| `GroupDetailBloc` | 오늘 기록 삭제 시 재작성 가능, 지난 기록 삭제 시 오늘 작성 여부 유지 |
+| `CreateRecordUseCase` | 오늘 이미 작성했으면 저장 자체를 호출하지 않음 |
+| 위젯 테스트 | 로그아웃 상태 시작 시 로그인 화면으로 이동 |
+
+- Firebase 없이 `Fake` 구현을 주입해 PC에서 실행 (Repository 인터페이스 + 생성자 주입 구조)
+- 푸시마다 GitHub Actions에서 테스트 → iOS 빌드 순으로 자동 실행
+
 ## 주요 설계 결정
 
 | 결정 | 이유 |

@@ -121,6 +121,9 @@
 - 위젯 테스트가 기본으로 PC에서 실행 (Native Compose UI 테스트는 기본이 에뮬, PC 실행은 Robolectric 필요)
 - Dart는 모든 클래스가 암묵적 인터페이스 → `extends Fake implements X`로 필요한 메서드만 구현한 테스트 대역 생성 (Native는 MockK 등 외부 라이브러리 사용)
 - Repository 인터페이스 + 생성자 주입 구조 덕분에 Firebase 없이 앱 전체를 테스트 가능
+- Bloc 테스트는 `bloc_test`의 `blocTest`로 "시작 상태(seed) → 이벤트(act) → State 순서(expect)"를 선언형으로 검증 (Native의 ViewModel + Turbine 조합에 해당)
+- Equatable 덕분에 State를 값으로 비교 가능
+- 사용하지 않는 UseCase도 `Fake`로 주입 → 의도치 않게 호출되면 테스트가 실패해 "이 이벤트는 이 UseCase만 쓴다"까지 검증
 
 ---
 
